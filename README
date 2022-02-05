@@ -175,7 +175,7 @@ Testing the software
   with various other useful information. 
 
   To test the Apache module version, create any file with a .phtml
-  extension and put a tag like: <?GOOMBAServerinfo()> in the file and see if
+  extension and put a tag like: <!GOOMBAServerinfo()> in the file and see if
   it gets parsed.
 
 
