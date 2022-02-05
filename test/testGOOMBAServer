@@ -1,0 +1,23 @@
+#!/bin/sh
+rm -f GOOMBAServerfi.in GOOMBAServerfi.out GOOMBAServerfi.test GOOMBAServerfi.desc
+CMD=`awk -f testGOOMBAServer.awk $1`
+eval $CMD
+cat GOOMBAServerfi.test | tr -d '\015' | awk '{ if(length($0)) print $0 }' > a.tmp
+awk '{ if(length($0)) print $0 }' GOOMBAServerfi.out >b.tmp
+#rm -f GOOMBAServerfi.test GOOMBAServerfi.out
+diff -w b.tmp a.tmp >/dev/null
+ret=$?
+if [ -f GOOMBAServerfi.desc ]; then
+	cat GOOMBAServerfi.desc
+	if [ "$ret" = "1" ]; then
+		echo FAIL
+	else
+		echo PASS
+	fi
+else
+	if [ "$ret" = "1" ]; then
+		echo "$1 ... FAIL"
+	else
+		echo "$1 ... PASS"
+	fi
+fi
