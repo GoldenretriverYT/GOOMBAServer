@@ -704,20 +704,20 @@ int yylex(YYSTYPE *lvalp) {
 			lstate=1;
 			c = getnextchar();
 			if(!c) { state=99; break; }
-			if(c=='?') {
+			if(c=='!') {
 				d = getnextchar();
 				if(!d) {
 					putback(c);	
 					state=99; 
 					break; 
 				}
-				if(d != '?') {
+				if(d != '!') {
 					putback(d);
 				} else {
 					c = d; /* discard '!' */
 				}
 			}
-			if(c!='?') {
+			if(c!='!') {
 				putback(c);	
 				if(output_from_marker() < 0) {
 					state=99; break;
