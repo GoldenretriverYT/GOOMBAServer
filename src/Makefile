@@ -39,7 +39,7 @@ LIBS = -L.  -lm
 CFLAGS = -g -O 
 LDFLAGS =    
 #DEBUG=-g -Wall -DDEBUG
-CPPFLAGS = -I.         -DACCESS_CONTROL -DACCESS_DIR=\"/usr/local/etc/httpd/cgi-data\" -DLOGGING=1 -DLOG_DIR=\"/usr/local/etc/httpd/cgi-data\"  -DFILE_UPLOAD   $(DEBUG) 
+CPPFLAGS = -I.                 $(DEBUG) 
 
 GOOMBAServer_PROGS: GOOMBAServer.cgi
 

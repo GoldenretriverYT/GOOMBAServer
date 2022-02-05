@@ -111,7 +111,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "chr", INTFUNC1,Chr },
 	  { NULL,0,NULL } }, 
 
-	{ { "echo",GOOMBAServerECHO,NULL },     /* 4 */
+	{ { "puthtml",GOOMBAServerECHO,NULL },     /* 4 */
 	  { "else",ELSE,NULL },
 	  { "case",CASE,NULL },
 	  { "feof",INTFUNC1,Feof },
@@ -124,7 +124,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "next",GOOMBAServerNEXT,NULL },
 	  { "prev",PREV,NULL },
 	  { "sort",INTFUNC1,Sort },
-	  { "rand",INTFUNC0,Rand },
+	  { "random",INTFUNC0,Rand },
 	  { "sqrt",INTFUNC1,Sqrt },
 	  { "file",INTFUNC1,File },
 	  { NULL,0,NULL } }, 
@@ -700,7 +700,7 @@ int yylex(YYSTYPE *lvalp) {
 			inmarker=inpos-1;
 			/* fall-through */
 
-		case 1:	/* '?' or '!?' gets us to state 2 */
+		case 1:	/* '!' or '!!' gets us to state 2 */
 			lstate=1;
 			c = getnextchar();
 			if(!c) { state=99; break; }
@@ -711,13 +711,13 @@ int yylex(YYSTYPE *lvalp) {
 					state=99; 
 					break; 
 				}
-				if(d != '?') {
+				if(d != '!') {
 					putback(d);
 				} else {
 					c = d; /* discard '!' */
 				}
 			}
-			if(c!='?') {
+			if(c!='!') {
 				putback(c);	
 				if(output_from_marker() < 0) {
 					state=99; break;
