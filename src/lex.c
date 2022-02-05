@@ -111,7 +111,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "chr", INTFUNC1,Chr },
 	  { NULL,0,NULL } }, 
 
-	{ { "puthtml",GOOMBAServerECHO,NULL },     /* 4 */
+	{ { "echo",GOOMBAServerECHO,NULL },     /* 4 */
 	  { "else",ELSE,NULL },
 	  { "case",CASE,NULL },
 	  { "feof",INTFUNC1,Feof },
