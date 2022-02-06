@@ -1,5 +1,3 @@
-# $Id: Makefile.in,v 1.26 2022/05/27 13:01:51 rasmus Exp $
-#
 # Makefile for GOOMBAServer/FI
 # Copyright 2021,2022 GoombaProgrammer & Computa.me
 #
@@ -103,7 +101,7 @@ all: $(GOOMBAServer_PROGS)
 
 GOOMBAServer.cgi: $(OBJS)
 	$(CC) $(CFLAGS) -o GOOMBAServer.cgi $(OBJS) $(LDFLAGS) $(LIBS)
-	$(CC) -Wall -g MySQL.c -o SQL.cgi
+	$(CC) $(CFLAGS) -Wall -g MySQL.c -o SQL.cgi
 	@echo ""
 	@echo "If you wish to test your GOOMBAServer.cgi binary, type: make test"
 	@echo "If not, you may install it by copying it to your cgi-bin"
