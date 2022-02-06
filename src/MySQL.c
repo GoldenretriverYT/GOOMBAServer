@@ -26,6 +26,8 @@ int main(int argc, char *argv[]){
 		printf("MySQL: Not enough arguments");
 		return 0;
 	}
-	system("mysql --user %s --password %s --host %s --database %s --execute \"%s\"", argv[1], argv[2], argv[3], argv[4], argv[5]);
+	char buf[256];
+	snprintf(buf, sizeof(buf), "%s%s%s%s%s", argv[1], argv[2], argv[3], argv[4], argv[5]);
+	system(buf);
 	return 0;
 }
