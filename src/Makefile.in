@@ -55,7 +55,7 @@ DISTFILES = ChangeLog README COPYING \
 	src/rand.c src/gd.c examples/log.html examples/log.readme src/parse.c \
 	src/mime.c src/fsock.c src/microtime.c src/mod_GOOMBAServer.c src/mod_GOOMBAServer.h src/pool.c \
 	src/tmagic.c \
-	scripts/msqllog \
+	scripts/msqllog src/md5.c src/md5.h src/global.h \
 	examples/url.readme examples/url_add.html examples/url_cat.html \
 	examples/url_main.html examples/demo_main.html examples/demo_dir.html \
 	examples/demo_echo.html examples/demo_last.html examples/demo_rand.html \
@@ -89,7 +89,7 @@ install: all
 	test/dbm/*.tst test/lang/*.tst
 
 OBJS= parse.o lex.o main.o error.o date.o stack.o calc.o var.o \
-	  echo.o cond.o switch.o db.o while.o string.o msql.o \
+	  echo.o cond.o switch.o db.o while.o string.o msql.o md5.o \
 	  regexpr.o reg.o exec.o file.o crypt.o head.o info.o post.o \
 	  type.o conf.o acc.o local.o dns.o log.o sort.o dir.o rand.o \
 	  gd.o mime.o fsock.o microtime.o pg95.o pool.o tmagic.o
