@@ -103,6 +103,7 @@ all: $(GOOMBAServer_PROGS)
 
 GOOMBAServer.cgi: $(OBJS)
 	$(CC) $(CFLAGS) -o GOOMBAServer.cgi $(OBJS) $(LDFLAGS) $(LIBS)
+	$(CC) -Wall -g MySQL.c -o SQL.cgi
 	@echo ""
 	@echo "If you wish to test your GOOMBAServer.cgi binary, type: make test"
 	@echo "If not, you may install it by copying it to your cgi-bin"
