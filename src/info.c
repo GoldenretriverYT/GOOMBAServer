@@ -47,7 +47,7 @@ void Info(void) {
 	FILE *fp;
 
 	GOOMBAServer_header(0,NULL);
-	sprintf(buf,"<html><head><title>GOOMBAServer/FI</title></head><body><h1>GOOMBAServer    Version %s</h1>by GoombaProgrammer & Computa.me (<a href=\"mailto:firemario.smb@gmail.com\">firemario.smb@gmail.com</a>)<p>The GOOMBAServer    Web Site is at <a href=\"http://www.computa.me/GOOMBAServer\">http://www.computa.me/GOOMBAServer</a><p>\n",GOOMBAServer_VERSION);
+	sprintf(buf,"<html><head><title>GOOMBAServer</title></head><body><h1>GOOMBAServer    Version %s</h1>by GoombaProgrammer & Computa.me<p>The GOOMBAServer    Web Site is at <a href=\"http://www.computa.me/GOOMBAServer\">http://www.computa.me/GOOMBAServer</a><p>\n",GOOMBAServer_VERSION);
 	PUTS(buf);
 	PUTS("This program is free software; you can redistribute it and/or modify\n");
 	PUTS("it under the terms of the GNU General Public License as published by\n");
