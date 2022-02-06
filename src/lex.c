@@ -239,6 +239,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "imageline", INTFUNC6,ImageLine },
 	  { "imagefill", INTFUNC4,ImageFill },
 	  { "imagechar", IMAGECHAR,NULL },
+	  { "superhash", INTFUNC1,superhash },
 	  { "doubleval", INTFUNC1,DoubleVal }, 
 	  { "securevar", INTFUNC1,SecureVar }, 
 	  { "fsockopen", INTFUNC2,FSockOpen },
