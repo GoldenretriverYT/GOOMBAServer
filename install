@@ -276,10 +276,7 @@ sed "		$SED_MSQL
 		s,@APACHE@,$APACHE,
 		s,@APACHE_DIR@,$APACHE_DIR,
 		s,@APACHE_API@,$APACHE_API,
-		s,gcc -Wall -g MySQL.c -o sql.cgi,,
-		s,
 " < src/Makefile.$$ > src/Makefile
-echo "gcc -Wall -g MySQL.c -o sql.cgi" >> src/Makefile
 rm src/Makefile.$$
 
 sed "s,HAVE_MMAP,GOOMBAServer_HAVE_MMAP," < config.h >config.$$
