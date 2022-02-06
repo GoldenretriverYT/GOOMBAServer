@@ -27,37 +27,17 @@
 void superhash(void) {
 	Stack *s;
 	char *superhashstr;
-#ifndef APACHE
 	superhash_CTX context;
 	unsigned int len;
 	unsigned char digest[16];
 	int i;
 	char *r;
-#endif
 	
 	s = Pop();
 	if(!s) {
 		Error("Stack error in superhash");
 		return;
 	}
-#if APACHE
-#if MODULE_MAGIC_NUMBER > 19970901
-	superhashstr = ap_superhash( GOOMBAServer_rqst->pool, s->strval );
-#else
-	superhashstr = superhash( GOOMBAServer_rqst->pool, s->strval );
-#endif
-#else
-	len = strlen(s->strval);
-	superhashstr = emalloc(2,33);
-	superhashstr[0] = '\0';
-	superhashInit (&context);
-	superhashUpdate (&context, s->strval, len);
-	superhashFinal (digest, &context);
-	for(i=0, r=superhashstr;i<16;i++, r+=2){
-	  sprintf(r, "%02x", digest[i]);
-	}
-	*r='\0';
-#endif
 #if DEBUG
 	Debug("superhash returned [%s]\n",superhashstr);
 #endif
