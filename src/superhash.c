@@ -27,7 +27,7 @@
 void superhash(void) {
 	Stack *s;
 	char *superhashstr;
-	superhash_CTX context;
+	SH_CTX context;
 	unsigned int len;
 	unsigned char digest[16];
 	int i;
@@ -112,7 +112,7 @@ Rotation is separate from addition to prevent recomputation.
 
 /* superhash initialization. Begins an superhash operation, writing a new context.
  */
-void superhashInit(superhash_CTX *context)
+void superhashInit(SH_CTX *context)
 {
   context->count[0] = context->count[1] = 0;
   /* Load magic initialization constants.
@@ -127,7 +127,7 @@ void superhashInit(superhash_CTX *context)
   operation, processing another message block, and updating the
   context.
  */
-void superhashUpdate(superhash_CTX *context, const unsigned char *input,
+void superhashUpdate(SH_CTX *context, const unsigned char *input,
                       unsigned int inputLen)
 {
   unsigned int i, index, partLen;
@@ -167,7 +167,7 @@ void superhashUpdate(superhash_CTX *context, const unsigned char *input,
 /* superhash finalization. Ends an superhash message-digest operation, writing the
   the message digest and zeroizing the context.
  */
-void superhashFinal(unsigned char digest[16], superhash_CTX *context)
+void superhashFinal(unsigned char digest[16], SH_CTX *context)
 {
   unsigned char bits[8];
   unsigned int index, padLen;
