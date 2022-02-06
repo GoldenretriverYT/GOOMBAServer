@@ -99,6 +99,7 @@ static cmd_table_t cmd_table[22][35] = {
 
 	{ { "max", INTFUNC1,ArrayMax }, /* 3 */
 	  { "min", INTFUNC1,ArrayMin },
+	  { "md5", INTFUNC1,Md5 },
 	  { "key", KEY,NULL },
 	  { "end", END,NULL },
 	  { "sin", INTFUNC1,Sin },
