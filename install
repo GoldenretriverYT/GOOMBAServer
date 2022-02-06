@@ -276,6 +276,7 @@ sed "		$SED_MSQL
 		s,@APACHE@,$APACHE,
 		s,@APACHE_DIR@,$APACHE_DIR,
 		s,@APACHE_API@,$APACHE_API,
+		s,@PRG@,$PRG,
 " < src/Makefile.$$ > src/Makefile
 rm src/Makefile.$$
 
