@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,28 +19,29 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: db.c,v 1.9 2022/05/16 15:29:18 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "GOOMBAServer.h"
-#ifdef HAVE_UNISTD_H
+#include <GOOMBAServer.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_SYS_FILE_H
+#if HAVE_SYS_FILE_H
 #ifndef HAVE_LOCKF
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 #include <sys/file.h>
 #endif
 #endif
 #endif
-#ifdef GDBM
+#if GDBM
 #include <gdbm.h>
 #else
-#ifdef NDBM
+#if NDBM
 #include <ndbm.h>
 #endif
 #endif
-#include "parse.h"
+#include <parse.h>
 
 static dbmStack *top = NULL;
 
@@ -50,27 +51,21 @@ void ListSupportedDBs(void) {
 
 	temp1[0]='\0';
 	temp[0]='\0';
-#ifdef GDBM
+#if GDBM
 	sprintf(temp1,"%s<br>",gdbm_version);
 	strcat(temp,temp1);
 #else
-#ifdef NDBM
+#if NDBM
 	strcat(temp,"ndbm support enabled<br>\n");
 #else
 	strcat(temp,"flat file support enabled<br>\n");
 #endif	
 #endif	
-#ifdef HAVE_LIBMSQL
+#if HAVE_LIBMSQL
 	strcat(temp,"mSQL support enabled<br>\n");
 #endif
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	strcat(temp,"Postgres95 support enabled<br>\n");
-#endif
-#ifdef HAVE_LIBMYSQL
-	strcat(temp,"mysql support enabled<br>\n");
-#endif
-#ifdef HAVE_LIBSOLID
-	strcat(temp,"Solid support enabled<br>\n");
 #endif
 #if NFS_HACK
 	strcat(temp,"NFS hack in effect<br>\n");
@@ -84,7 +79,7 @@ void dbmPush(char *filename,char *lockfn,int lockfd, void *dbf) {
 	dbmStack *new;
 
 	new = emalloc(0,sizeof(dbmStack));
-	new->next=top;
+	new->next=NULL;
 	new->filename = estrdup(0,filename);
 	if(lockfn) new->lockfn = estrdup(0,lockfn);
 	else new->lockfn=NULL;
@@ -166,12 +161,12 @@ void dbmCloseAll(void) {
 #if NFS_HACK
 
 #else
-#ifdef HAVE_LOCKF
+#if HAVE_LOCKF
 			lockfd = open(s->lockfn,O_RDWR,0644);
 			lockf(lockfd,F_ULOCK,0);
 			close(lockfd);
 #else
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 			lockfd = open(s->lockfn,O_RDWR,0644);
 			flock(s->lockfd,LOCK_UN);
 			close(lockfd);
@@ -182,10 +177,10 @@ void dbmCloseAll(void) {
 			unlink(s->lockfn);
 #endif
 		}
-#ifdef GDBM
+#if GDBM
 		if(s->dbf) gdbm_close(s->dbf);
 #else
-#ifdef NDBM
+#if NDBM
 		if(s->dbf) dbm_close(s->dbf);
 #else
 		if(s->dbf) fclose(s->dbf);
@@ -216,12 +211,12 @@ void dbmOpen(void) {
 	}
 	filename = estrdup(0,s->strval);
 
-	ret = _dbmOpen(filename,mode,1);
+	ret = _dbmOpen(filename,mode);
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
 }
 
-int _dbmOpen(char *filename, char *mode, int docroot) {
+int _dbmOpen(char *filename, char *mode) {
 	char *fn;
 	int ret,lock=0;
 	char *lockfn=NULL;
@@ -231,11 +226,11 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 	struct stat sb;
 	int retries=0;
 #endif
-#ifdef GDBM 
+#if GDBM 
 	GDBM_FILE dbf;
 	int imode=0;
 #else 
-#ifdef NDBM 
+#if NDBM 
 	DBM *dbf;
 	int imode=0;
 #else 
@@ -246,10 +241,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 
 	switch(*mode) {
 		case 'w': 
-#ifdef GDBM
+#if GDBM
 			imode=GDBM_WRITER; 
 #else 
-#ifdef NDBM 
+#if NDBM 
 			imode=O_RDWR;
 #else 
 			strcpy(imode,"r+b");
@@ -258,10 +253,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 			lock=1;
 			break;
 		case 'c': 
-#ifdef GDBM
+#if GDBM
 			imode=GDBM_WRCREAT;
 #else
-#ifdef NDBM 
+#if NDBM 
 			imode=O_RDWR | O_APPEND | O_CREAT;
 #else
 			strcpy(imode,"a+b");
@@ -270,10 +265,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 			lock=1;
 			break;
 		case 'n': 
-#ifdef GDBM 
+#if GDBM 
 			imode=GDBM_NEWDB;
 #else
-#ifdef NDBM 
+#if NDBM 
 			imode=O_RDWR | O_CREAT | O_TRUNC;
 #else
 			strcpy(imode,"w+b");
@@ -282,10 +277,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 			lock=1;
 			break;
 		default: 
-#ifdef GDBM 
+#if GDBM 
 			imode=GDBM_READER;
 #else
-#ifdef NDBM 
+#if NDBM 
 			imode=O_RDONLY;
 #else
 			strcpy(imode,"r");
@@ -294,9 +289,8 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 			lock=0;
 			break;
 	}
-	if(docroot) fn = FixFilename(filename,0,&ret,0);
-	else fn=filename;	
-#ifdef GDBM 
+	fn = FixFilename(filename,0,&ret);
+#if GDBM 
 	if(lock) {
 		lockfn = emalloc(1,strlen(fn)+10);
 		strcpy(lockfn,fn);
@@ -317,10 +311,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 #else /* NFS_HACK */
 		lockfd = open(lockfn,O_RDWR|O_CREAT,0644);
 		if(lockfd) {
-#ifdef HAVE_LOCKF 
+#if HAVE_LOCKF 
 			lockf(lockfd,F_LOCK,0);
 #else
-#ifdef HAVE_FLOCK 
+#if HAVE_FLOCK 
 			flock(lockfd,LOCK_EX);
 #endif 
 #endif 
@@ -332,7 +326,7 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 	}
 	dbf = gdbm_open(fn,512,imode,0666,0);
 #else
-#ifdef NDBM 
+#if NDBM 
 	if(lock) {
 		lockfn = emalloc(1,strlen(fn)+10);
 		strcpy(lockfn,fn);
@@ -356,10 +350,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 #else
 		lockfd = open(lockfn,O_RDWR|O_CREAT,0644);
 		if(lockfd) {
-#ifdef HAVE_LOCKF 
+#if HAVE_LOCKF 
 			lockf(lockfd,F_LOCK,0);
 #else
-#ifdef HAVE_FLOCK 
+#if HAVE_FLOCK 
 			flock(lockfd,LOCK_EX);
 #endif 
 #endif 
@@ -401,10 +395,10 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 #if NFS_HACK 
 				
 #else			
-#ifdef HAVE_LOCKF 
+#if HAVE_LOCKF 
 			lockf(fileno(dbf),F_LOCK,0);
 #else
-#ifdef HAVE_FLOCK 
+#if HAVE_FLOCK 
 			flock(fileno(dbf),LOCK_EX);
 #endif 
 #endif 
@@ -417,13 +411,13 @@ int _dbmOpen(char *filename, char *mode, int docroot) {
 		dbmPush(filename,lockfn,lockfd,dbf);
 		ret = 0;
 	} else {
-#ifdef GDBM 
+#if GDBM 
 		Error("dbmopen: %d [%s], %d [%s]",gdbm_errno,gdbm_strerror(gdbm_errno),errno,strerror(errno));
 		if(gdbm_errno) ret = gdbm_errno;
 		else if(errno) ret = errno;
 		else ret = -1;
 #else 
-#ifdef NDBM 
+#if NDBM 
 #if DEBUG
 		Debug("dbmOpen (ndbm): errno = %d [%s]\n",errno,strerror(errno));
 #endif
@@ -465,11 +459,11 @@ int _dbmClose(char *filename) {
 	dbmStack *st;
 	int ret;
 	char *fn;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 	int lockfd;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 	int lockfd;
 #else
@@ -487,17 +481,17 @@ int _dbmClose(char *filename) {
 	fn = emalloc(1,sizeof(char) * (strlen(st->filename)+10));
 	strcpy(fn,st->filename);
 	strcat(fn,".lck");
-#ifdef GDBM
+#if GDBM
 #if NFS_HACK
 	unlink(fn);
 #else
 	if(st->lockfn) {
-#ifdef HAVE_LOCKF
+#if HAVE_LOCKF
 		lockfd = open(st->lockfn,O_RDWR,0644);
 		lockf(lockfd,F_ULOCK,0);
 		close(lockfd);
 #else
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 		lockfd = open(st->lockfn,O_RDWR,0644);
 		flock(lockfd,LOCK_UN);
 		close(lockfd);
@@ -507,17 +501,17 @@ int _dbmClose(char *filename) {
 #endif
 	if(dbf) gdbm_close(dbf);
 #else
-#ifdef NDBM
+#if NDBM
 #if NFS_HACK
 	unlink(fn);
 #else
 	if(st->lockfn) {
-#ifdef HAVE_LOCKF
+#if HAVE_LOCKF
 		lockfd = open(st->lockfn,O_RDWR,0644);
 		lockf(lockfd,F_ULOCK,0);
 		close(lockfd);
 #else
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 		lockfd = open(st->lockfn,O_RDWR,0644);
 		flock(lockfd,LOCK_UN);
 		close(lockfd);
@@ -532,10 +526,10 @@ int _dbmClose(char *filename) {
 	if(dbf) {
 #else
 	if(dbf) {
-#ifdef HAVE_LOCKF
+#if HAVE_LOCKF
 		lockf(fileno(dbf),F_ULOCK,0);
 #else
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 		flock(fileno(dbf),LOCK_UN);
 #endif
 #endif
@@ -590,10 +584,10 @@ int _dbmInsert(char *filename, char *keystr, char *contentstr) {
 	static datum key, content;
 	int ret;
 	dbmStack *st;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else
 	FILE *dbf;
@@ -615,13 +609,9 @@ int _dbmInsert(char *filename, char *keystr, char *contentstr) {
 	StripSlashes(contentstr);
 	StripSlashes(keystr);
 	content.dptr = estrdup(1,contentstr);
-	content.dsize = strlen(contentstr);
+	content.dsize = strlen(contentstr)+1;
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);
 	if(!st) {
@@ -633,10 +623,10 @@ int _dbmInsert(char *filename, char *keystr, char *contentstr) {
 		Error("Unable to locate dbm file");
 		return(1);
 	}
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_store(dbf, key, content, GDBM_INSERT);
 #else
-#ifdef NDBM
+#if NDBM
 	ret = dbm_store(dbf, key, content, DBM_INSERT);
 #else
 	fseek(dbf,0L,SEEK_END);
@@ -839,10 +829,10 @@ int _dbmReplace(char *filename, char *keystr, char *contentstr) {
 	static int First=1;
 #endif
 	static datum key, content;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else
 	FILE *dbf;
@@ -866,13 +856,9 @@ int _dbmReplace(char *filename, char *keystr, char *contentstr) {
 #endif
 
 	content.dptr = estrdup(1,contentstr);
-	content.dsize = strlen(contentstr);  
+	content.dsize = strlen(contentstr)+1;
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);
 	if(!st || (st && !st->dbf)) {
@@ -880,10 +866,10 @@ int _dbmReplace(char *filename, char *keystr, char *contentstr) {
 		return(-1);
 	}
 	dbf = st->dbf;
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_store(dbf, key, content, GDBM_REPLACE);
 #else
-#ifdef NDBM
+#if NDBM
 	ret = dbm_store(dbf, key, content, DBM_REPLACE);
 #else
 	flatfilewipekey(dbf,key.dptr,key.dsize);
@@ -922,13 +908,13 @@ char *_dbmFetch(char *filename, char *keystr) {
 	static char temp[1] = { '\0' };
 	static datum key, content;
 #ifndef APACHE
-	static int First=1;
+	static First=1;
 #endif
 	static char *ret=NULL;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else
 	FILE *dbf;
@@ -946,11 +932,7 @@ char *_dbmFetch(char *filename, char *keystr) {
 #endif	
 
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);
 	if(!st) {
@@ -965,10 +947,10 @@ char *_dbmFetch(char *filename, char *keystr) {
 		return(NULL);
 	}
 
-#ifdef GDBM
+#if GDBM
 	content = gdbm_fetch(dbf,key);	
 #else
-#ifdef NDBM
+#if NDBM
 	content = dbm_fetch(dbf,key);
 #else
 	if(flatfilefindkey(dbf,key.dptr,key.dsize)) {
@@ -992,7 +974,7 @@ char *_dbmFetch(char *filename, char *keystr) {
 		ret = emalloc(1,sizeof(char) * (content.dsize+1));
 		memcpy(ret,content.dptr,content.dsize);
 		*(ret+content.dsize) = '\0';
-#ifdef GDBM /* GDBM uses malloc to allocate the content blocks, so we need to free it */
+#if GDBM /* GDBM uses malloc to allocate the content blocks, so we need to free it */
 		free(content.dptr);
 #else
 #ifndef NDBM /* the internal flat-file format uses malloc as well */
@@ -1038,10 +1020,10 @@ int _dbmExists(char *filename, char *keystr) {
 	static int First=1;
 #endif
 	int ret=0;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 	datum content;
 #else
@@ -1058,11 +1040,7 @@ int _dbmExists(char *filename, char *keystr) {
 #endif
 
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);	
 	dbf = st->dbf;
@@ -1070,10 +1048,10 @@ int _dbmExists(char *filename, char *keystr) {
 		Error("Unable to locate dbm file");
 		return(-1);
 	}
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_exists(dbf,key);
 #else
-#ifdef NDBM
+#if NDBM
 	content = dbm_fetch(dbf,key);
 	if(content.dptr) ret = 1;
 	else ret = 0;
@@ -1114,10 +1092,10 @@ int _dbmDelete(char *filename, char *keystr) {
 	static int First=1;
 #endif
 	int ret=0;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else
 	FILE *dbf;
@@ -1136,11 +1114,7 @@ int _dbmDelete(char *filename, char *keystr) {
 #endif
 
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);	
 	dbf = st->dbf;
@@ -1148,10 +1122,10 @@ int _dbmDelete(char *filename, char *keystr) {
 		Error("Unable to locate dbm file");
 		return(-1);
 	}
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_delete(dbf,key);
 #else
-#ifdef NDBM
+#if NDBM
 	ret = dbm_delete(dbf,key);
 #else
 	flatfilewipekey(dbf,key.dptr,key.dsize);
@@ -1181,10 +1155,10 @@ char *_dbmFirstKey(char *filename) {
 #endif
 	static datum ret;
 	static char *retstr;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else
 	FILE *dbf;
@@ -1210,10 +1184,10 @@ char *_dbmFirstKey(char *filename) {
 		Error("Unable to locate dbm file");
 		return(NULL);
 	}
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_firstkey(dbf);
 #else
-#ifdef NDBM
+#if NDBM
 	ret = dbm_firstkey(dbf);
 #else
 	ret = flatfilefirstkey(dbf);
@@ -1259,10 +1233,10 @@ char *_dbmNextKey(char *filename, char *keystr) {
 #endif
 	static datum ret;
 	static char *retstr;
-#ifdef GDBM
+#if GDBM
 	GDBM_FILE dbf;
 #else
-#ifdef NDBM
+#if NDBM
 	DBM *dbf;
 #else 
 	FILE *dbf;
@@ -1282,11 +1256,7 @@ char *_dbmNextKey(char *filename, char *keystr) {
 #endif
 
 	key.dptr = estrdup(1,keystr);
-#ifdef GDBM_FIX
-	key.dsize = strlen(keystr)+1;
-#else
 	key.dsize = strlen(keystr);
-#endif
 
 	st = (dbmStack *)dbmFind(filename);	
 	if(!st) {
@@ -1298,10 +1268,10 @@ char *_dbmNextKey(char *filename, char *keystr) {
 		Error("Unable to locate dbm file");
 		return(NULL);
 	}
-#ifdef GDBM
+#if GDBM
 	ret = gdbm_nextkey(dbf,key);
 #else
-#ifdef NDBM
+#if NDBM
 	ret = dbm_nextkey(dbf);
 #else
 	ret = flatfilenextkey(dbf);

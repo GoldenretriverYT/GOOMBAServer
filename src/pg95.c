@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -36,15 +36,15 @@
 *  owned code in this file.                                                  *
 *                                                                            *
 \****************************************************************************/
-/* Patches marked 'john:' by John Robinson <john@intelligent.co.uk> */
 
+/* $Id: pg95.c,v 1.10 2022/05/16 15:29:26 rasmus Exp $ */
 
-#include "GOOMBAServer.h"
+#include <GOOMBAServer.h>
 #include <stdlib.h>
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 #include <libpq-fe.h>
 #endif
-#include "parse.h"
+#include <parse.h>
 #include <ctype.h>
 
 #if APACHE
@@ -53,7 +53,7 @@
 #endif
 #endif
 
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 typedef struct pgResultList {
 	PGresult	*result;
 	int		index;
@@ -75,7 +75,7 @@ static int	pg95_conn_ind=1;
 #endif
 
 void GOOMBAServer_init_pg95(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	pg_result_top=NULL;
 	pg_conn_top=NULL;
 	pgTypeRes=0;
@@ -93,7 +93,7 @@ void GOOMBAServer_init_pg95(void) {
 
 /* pgResultList */
 
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 int pg_add_result(PGresult *result)
 {
 	/* result index 1 (pg95_ind) is reserved to indicate successfull
@@ -288,7 +288,7 @@ char* pg_type(PGconn* conn, int toid)
 /* GOOMBAServer house keeping function */
 
 void PGcloseAll(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	pgResultList	*lnew, *lnext;
 	pgConnList	*cnew, *cnext;
 
@@ -313,14 +313,14 @@ void PGcloseAll(void) {
 /* Main User Functions */
 
 void PGexec(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack	*s;
 	int	conn;
 	ExecStatusType	stat;
 	char	*query;
 	int	j;
 	char	temp[16];
-	const char *tmpoid;
+	char	*tmpoid;
 	PGresult *result=NULL;
 	PGconn	 *curr_conn=NULL;
 
@@ -370,13 +370,10 @@ void PGexec(void) {
 			return;
 		}
 	}
-	StripDollarSlashes(query);  /* Postgres95 doesn't recognize \$ */
-#if DEBUG
-	Debug("Sending query: %s\n",query);
-#endif
+
 	result = PQexec(curr_conn, query);
 	if (result == NULL) 
-		stat = (ExecStatusType) PQstatus(curr_conn);
+		stat = PQstatus(curr_conn);
 	else
 		stat = PQresultStatus(result);
 
@@ -420,7 +417,7 @@ void PGexec(void) {
 }
 
 void PG_result(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	char		*field;
 	char		*ftype;
@@ -433,25 +430,13 @@ void PG_result(void) {
 	char*		tmp;
 	char*		ret;
 
-	field_ind = -1;
-	field = NULL;
-
 	s = Pop();
 	if (!s) {
 		Error("Stack error in pg_result");
 		Push("", STRING);
 		return;
 	}
-	if (s->strval)
-		if (s->type == STRING)
-#if GOOMBAServer_PG_LOWER
-			field = estrdup(1,_strtolower(s->strval)); /* lower case field names */
-#else
-			field = estrdup(1,s->strval); /* case-sensitive field names */
-#endif
-		else
-			field_ind = s->intval;
-		
+	if (s->strval) field = estrdup(1,s->strval);
 	else {
 		Error("No field argument in pg_result");
 		Push("", STRING);
@@ -498,18 +483,14 @@ void PG_result(void) {
 		return;
 	}
 
-	/* get field index if the field parameter was a string */
-	if (field != NULL)
-	{
-		field_ind = PQfnumber(result, field);
-		if (field_ind < 0) {
-			Error("Field %s not found", field);
-			Push("", STRING);
-			return;
-		}
+	/* get field type */
+	field_ind = PQfnumber(result, field);
+	if (field_ind < 0) {
+		Error("Field %s not found", field);
+		Push("", STRING);
+		return;
 	}
 
-	/* get field type */
 	type_oid = PQftype(result, field_ind);
 	ftype = pg_type(curr_conn, type_oid);
 
@@ -541,13 +522,9 @@ void PG_result(void) {
 		return;
 	}
 
-	/* cover int, int2, int4, integer, oid, smallint */
-	/* john: this used to accidentally pick up "point" because
-	** strstr(ftype, "int") matches "point". Never mind, I've
-	** refudged it so it doesn't any more
-	** john: not bool, which should have been parsed from 't' or 'f'
-	*/
-	if ((strstr (ftype, "int") && strcmp(ftype, "point")) ||
+	/* cover int, int2, int4, integer, bool, oid, smallint */
+	if (strstr (ftype, "int")  ||
+	    !strcmp(ftype, "bool") ||
 	    strstr (ftype, "oid")) {
 
 		Push(tmp, LNUMBER);
@@ -565,10 +542,8 @@ void PG_result(void) {
 	/* cover bpchar, bytea, char, char2, char4, char8, char16,
 	 * name, text, varchar, abstime, date, reltime, time,
 	 * tinterval
-	 * john: and bool as 't' or 'f', which is what pg95 1.09 returns
 	 */
 	if ( strstr(ftype, "char")  ||
-	    !strcmp(ftype, "bool")  ||
 	    !strcmp(ftype, "name")  ||
 	    !strcmp(ftype, "text")  ||
 	     strstr(ftype, "time")  ||
@@ -721,7 +696,7 @@ void PGconnect(void) {
 }
 
 void PGclose(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -744,7 +719,7 @@ void PGclose(void) {
 }
 
 void PGnumRows(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	PGresult	*result;
@@ -782,7 +757,7 @@ void PGnumRows(void) {
 
 
 void PGnumFields(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	PGresult	*result;
@@ -819,7 +794,7 @@ void PGnumFields(void) {
 }
 
 void PGfieldName(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	int		field_ind;
@@ -884,7 +859,7 @@ void PGfieldName(void) {
 }
 
 void PGfieldType(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	int		field_ind;
@@ -958,7 +933,7 @@ void PGfieldType(void) {
 }
 
 void PGfieldNum(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	char		*fname;
@@ -1012,7 +987,7 @@ void PGfieldNum(void) {
 
 
 void PGfieldPrtLen(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	int		tuple_ind;
@@ -1087,7 +1062,7 @@ void PGfieldPrtLen(void) {
 }
 
 void PGfieldSize(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		res_ind;
 	PGresult	*result;
@@ -1151,7 +1126,7 @@ void PGfieldSize(void) {
 
 
 void PGhost(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -1190,7 +1165,7 @@ void PGhost(void) {
 
 
 void PGdbName(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -1228,7 +1203,7 @@ void PGdbName(void) {
 }
 
 void PGoptions(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -1266,7 +1241,7 @@ void PGoptions(void) {
 }
 
 void PGport(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -1304,7 +1279,7 @@ void PGport(void) {
 }
 
 void PGtty(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	Stack		*s;
 	int		conn_ind;
 	PGconn		*conn;
@@ -1343,52 +1318,13 @@ void PGtty(void) {
 
 
 void PGgetlastoid(void) {
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	char		tmp[16];
 
 	sprintf(tmp, "%d", pgLastOid);
 	Push(tmp, LNUMBER);
 
 #else
-	Error("No postgres95 support");
-#endif
-}
-
-
-void PGerrorMessage(void) {
-#ifdef HAVE_LIBPQ
-	Stack		*s;
-	int		conn_ind;
-	PGconn		*conn;
-	char		*tmp;
-
-	s = Pop();
-	if (!s) {
-		Error("Stack error in pg_errorMessage");
-		Push("", STRING);
-		return;
-	}
-	if (s->strval) conn_ind = s->intval;
-	else conn_ind = 0;
-
-	conn = pg_get_conn(conn_ind);
-	if (conn == NULL) {
-		Error("Bad connection index in pg_errorMessge");
-		Push("", STRING);
-		return;
-	}
-
-	tmp = estrdup(1,PQerrorMessage(conn));
-	if (tmp == NULL) {
-		Error("Out of memory");
-		Push("", STRING);
-		return;
-	}
-
-	Push(tmp, STRING);
-
-#else
-	Pop();
 	Error("No postgres95 support");
 #endif
 }

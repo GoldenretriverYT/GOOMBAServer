@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *       
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,9 +19,10 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: mime.c,v 1.8 2022/05/16 15:29:24 rasmus Exp $ */
 #include <stdlib.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 
 #if APACHE
 static char *UploadTmpDir=NULL;
@@ -172,7 +173,7 @@ void mime_split(char *buf, int cnt, char *boundary) {
 				fn = tempnam(NULL,"GOOMBAServerfi");
 #endif
 #endif
-				if(max_file_size && ((loc-ptr-4) > max_file_size)) {
+				if((loc-ptr-4) > max_file_size) {
 					Error("Max file size exceeded - file [%s] not saved",namebuf);
 					bytes=0;
 					Push("none",STRING);
@@ -190,7 +191,7 @@ void mime_split(char *buf, int cnt, char *boundary) {
 					bytes=fwrite(ptr,1,loc-ptr-4,fp);
 					fclose(fp);		
 					if(bytes<(loc-ptr-4)) {
-						Error("Only %d bytes were written, expected to write %ld",bytes,loc-ptr-4);
+						Error("Only %d bytes were written, expected to write %ld",loc-ptr-4);
 					}
 					Push(fn,STRING);
 					SetVar(namebuf,0,0);

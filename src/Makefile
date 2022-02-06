@@ -1,3 +1,4 @@
+# Generated automatically from Makefile.in by configure.
 # $Id: Makefile.in,v 1.26 2022/05/27 13:01:51 rasmus Exp $
 #
 # Makefile for GOOMBAServer/FI
@@ -19,29 +20,28 @@
 
 #### Start of system configuration section. ####
 
-srcdir = @srcdir@
-VPATH = @srcdir@
+srcdir = .
 
-INSTALL = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
-INSTALL_DATA = @INSTALL_DATA@
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA = ${INSTALL} -m 644
 
-prefix = @prefix@
-exec_prefix = @exec_prefix@
+prefix = /usr/local
+exec_prefix = ${prefix}
 
 ### configure variable replacement block ###
 SHELL = /bin/sh
 AR = ar rc
-RANLIB = @RANLIB@
-CC = @CC@
-YACC = @YACC@ -d -l
-LIBS = -L. @HLNK@ @LIBS@ @best_dbm@ @LIBMSQL@ @LIBPQ@ @LIBFCGI@
-CFLAGS = @CFLAGS@ 
-LDFLAGS = @LDFLAGS@ @MSQL_LIB@ @PQ_LIB@ @FCGI_LIB@
+RANLIB = ranlib
+CC = gcc
+YACC = bison -y -d -l
+LIBS = -L.  -lm     
+CFLAGS = -g -O 
+LDFLAGS =    
 #DEBUG=-g -Wall -DDEBUG
-CPPFLAGS = -I. @CPPFLAGS@ @MSQL_INCLUDE@ @MSQL_DEF@ @PQ_INCLUDE@ @PQ_DEF@ @FCGI_INCLUDE@ @FCGI_DEF@ @APACHE_INCLUDE@ @ACCESS_CONTROL@ @ACCESS_DIR@ @LOGGING@ @LOG_DIR@ @HGD@ @FILE_UPLOAD@ @APACHE@ @APACHE_API@ $(DEBUG) 
+CPPFLAGS = -I.                 $(DEBUG) 
 
-GOOMBAServer_PROGS: @PRG@
+GOOMBAServer_PROGS: GOOMBAServer.cgi
 
 # Files that can be generated, but should be up to date for a distribution.
 DISTDEP = Makefile
@@ -112,7 +112,7 @@ GOOMBAServer.cgi: $(OBJS)
 libGOOMBAServer.a: $(OBJS)
 	$(AR) libGOOMBAServer.a $(OBJS)
 	$(RANLIB) libGOOMBAServer.a
-	-cp mod_GOOMBAServer.[ch] libGOOMBAServer.a @APACHE_DIR@
+	-cp mod_GOOMBAServer.[ch] libGOOMBAServer.a 
 	@echo ""
 	@echo "You now need to recompile your Apache server."
 	@echo "mod_GOOMBAServer.* and libGOOMBAServer.a should have been copied to your"
@@ -120,7 +120,7 @@ libGOOMBAServer.a: $(OBJS)
 	@echo "Then edit your Confiration file for Apache and look for"
 	@echo "the \"EXTRA_LIBS\" line and add the following to that line:"
 	@echo ""
-	@echo "-L. -lGOOMBAServer @HLNK@ @best_dbm@ @MSQL_LIB@ @LIBMSQL@ @PQ_LIB@ @LIBPQ@ -lm"
+	@echo "-L. -lGOOMBAServer       -lm"
 	@echo ""
 	@echo "If you have the GD library, you will need to add -lgd to the above."
 	@echo "Then add the following line to the very end of the Configuration file:"

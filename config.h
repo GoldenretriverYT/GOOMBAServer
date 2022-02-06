@@ -1,107 +1,108 @@
+/* config.h.  Generated automatically by configure.  */
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
 
 /* Define if you don't have vprintf but do have _doprnt.  */
-#undef HAVE_DOPRNT
+/* #undef HAVE_DOPRNT */
 
 /* Define if you have the vprintf function.  */
-#undef HAVE_VPRINTF
+#define HAVE_VPRINTF 1
 
 /* Define if you have the ANSI C header files.  */
-#undef STDC_HEADERS
+#define STDC_HEADERS 1
 
 /* Define if your <sys/time.h> declares struct tm.  */
-#undef TM_IN_SYS_TIME
+/* #undef TM_IN_SYS_TIME */
 
 /* Define if you have the crypt function.  */
-#undef HAVE_CRYPT
+/* #undef HAVE_CRYPT */
 
 /* Define if you have the memcpy function.  */
-#undef HAVE_MEMCPY
+#define HAVE_MEMCPY 1
 
 /* Define if you have the strdup function.  */
-#undef HAVE_STRDUP
+#define HAVE_STRDUP 1
 
 /* Define if you have the strerror function.  */
-#undef HAVE_STRERROR
+#define HAVE_STRERROR 1
 
 /* Define if you have the strstr function.  */
-#undef HAVE_STRSTR
+#define HAVE_STRSTR 1
 
 /* Define if you have the flock function.  */
-#undef HAVE_FLOCK
+#define HAVE_FLOCK 1
 
 /* Define if you have the lockf function.  */
-#undef HAVE_LOCKF
+#define HAVE_LOCKF 1
 
 /* Define if you have the strcasecmp function.  */
-#undef HAVE_STRCASECMP
+#define HAVE_STRCASECMP 1
 
 /* Define if you have the mmap function.  */
-#undef HAVE_MMAP
+#define GOOMBAServer_HAVE_MMAP 1
 
 /* Define if you have the putenv function.  */
-#undef HAVE_PUTENV
+#define HAVE_PUTENV 1
 
 /* Define if you have the tempnam function.  */
-#undef HAVE_TEMPNAM
+#define HAVE_TEMPNAM 1
 
 /* Define if you have the usleep function.  */
-#undef HAVE_USLEEP
+#define HAVE_USLEEP 1
 
 /* Define if you have the setlocale function.  */
-#undef HAVE_SETLOCALE
+#define HAVE_SETLOCALE 1
 
 /* Define if you have the gettimeofday function.  */
-#undef HAVE_GETTIMEOFDAY
+#define HAVE_GETTIMEOFDAY 1
 
 /* Define if you have the setvbuf function.  */
-#undef HAVE_SETVBUF
+#define HAVE_SETVBUF 1
 
 /* Define if you have the srand48 function.  */
-#undef HAVE_SRAND48
+#define HAVE_SRAND48 1
 
 /* Define if you have the lrand48 function.  */
-#undef HAVE_LRAND48
+#define HAVE_LRAND48 1
 
 /* Define if you have the <dirent.h> header file.  */
-#undef HAVE_DIRENT_H
+#define HAVE_DIRENT_H 1
 
 /* Define if you have the <fcntl.h> header file.  */
-#undef HAVE_FCNTL_H
+#define HAVE_FCNTL_H 1
 
 /* Define if you have the <ndir.h> header file.  */
-#undef HAVE_NDIR_H
+/* #undef HAVE_NDIR_H */
 
 /* Define if you have the <sys/dir.h> header file.  */
-#undef HAVE_SYS_DIR_H
+/* #undef HAVE_SYS_DIR_H */
 
 /* Define if you have the <sys/ndir.h> header file.  */
-#undef HAVE_SYS_NDIR_H
+/* #undef HAVE_SYS_NDIR_H */
 
 /* Define if you have the <unistd.h> header file.  */
-#undef HAVE_UNISTD_H
+#define HAVE_UNISTD_H 1
 
 /* Define if you have the <crypt.h> header file.  */
-#undef HAVE_CRYPT_H
+#define HAVE_CRYPT_H 1
 
 /* Define if you have the <sys/file.h> header file.  */
-#undef HAVE_SYS_FILE_H
+#define HAVE_SYS_FILE_H 1
 
 /* Define if you have the <memory.h> header file.  */
-#undef HAVE_MEMORY_H
+#define HAVE_MEMORY_H 1
 
 /* Define if you an ndbm compatible library (-ldbm).  */
-#undef NDBM
+/* #undef NDBM */
 
 /* Define if you have the gdbm library (-lgdbm).  */
-#undef GDBM
+/* #undef GDBM */
 
 /* Define if you have the nsl library (-lnsl).  */
-#undef HAVE_LIBNSL
+/* #undef HAVE_LIBNSL */
 
 /* Define if you have the socket library (-lsocket).  */
-#undef HAVE_LIBSOCKET
+/* #undef HAVE_LIBSOCKET */
 
 /* Define if you have the gd library (-lgd).  */
-#undef HAVE_LIBGD
+/* #undef HAVE_LIBGD */
 

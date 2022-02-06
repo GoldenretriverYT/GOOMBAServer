@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,19 +19,21 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-#include "GOOMBAServer.h"
+/* $Id: acc.c,v 1.19 2022/05/16 15:29:16 rasmus Exp $ */
+#include <GOOMBAServer.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <string.h>
-#ifdef HAVE_CRYPT_H
+#if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
 #include <ctype.h>
 #include <errno.h>
-#include "parse.h"
+#include <parse.h>
+#include <regexpr.h>
 #if APACHE
 #include "http_protocol.h"
 #endif
@@ -40,7 +42,7 @@ static char *RemoteHostName=NULL;
 static char *EmailAddr=NULL;
 static char *RefDoc=NULL;
 static char *Browser=NULL;
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 static int Logging=1;
 #endif
 static int ShowInfo=1;
@@ -58,7 +60,7 @@ void GOOMBAServer_init_acc(void) {
 	EmailAddr=NULL;
 	RefDoc=NULL;
 	Browser=NULL;
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 #if APACHE
 	Logging=conf->Logging;
 #else
@@ -172,7 +174,7 @@ void AddRule(char *db) {
 	var = GetVar("addrule",NULL,0);
 	if(!var) return;
 	_dbmClose(db);
-	ret = _dbmOpen(db,"w",0);
+	ret = _dbmOpen(db,"w");
 	if(ret) return;
 	if(!strcmp(var->strval,"Default")) strcpy(temp,"cfg-accessALL");
 	else sprintf(temp,"cfg-access-%s",var->strval);
@@ -195,7 +197,7 @@ void AddRule(char *db) {
 	}
 	_dbmReplace(db,temp,temp2);
 	_dbmClose(db);
-	_dbmOpen(db,"r",0);
+	_dbmOpen(db,"r");
 }
 		
 void AddFile(char *db, char *path) {
@@ -213,14 +215,14 @@ void AddFile(char *db, char *path) {
 	s = _dbmFetch(db,temp);
 	if(s && strlen(s)>2) return;
 	_dbmClose(db);
-	ret = _dbmOpen(db,"w",0);
+	ret = _dbmOpen(db,"w");
 	if(ret) return;
 
 	s = _dbmFetch(db,"cfg-accessALL");
 	if(s) _dbmInsert(db,temp,s);	
 	else _dbmInsert(db,temp,"pub\033L\033dom.*");
 	_dbmClose(db);
-	_dbmOpen(db,"r",0);
+	_dbmOpen(db,"r");
 }
 
 void ChkPostVars(char *db) {
@@ -230,7 +232,7 @@ void ChkPostVars(char *db) {
 	var = GetVar("cfg-email-URL",NULL,0);
 	if(var) {
 		_dbmClose(db);
-		ret = _dbmOpen(db,"w",0);
+		ret = _dbmOpen(db,"w");
 		if(ret) return;
 		op = 1;
 		_dbmReplace(db,"cfg-email-URL",var->strval);
@@ -241,7 +243,7 @@ void ChkPostVars(char *db) {
 	if(var) {
 		if(!op) {
 			_dbmClose(db);
-			ret = _dbmOpen(db,"w",0);
+			ret = _dbmOpen(db,"w");
 			if(ret) return;
 			op = 1;
 		}
@@ -253,7 +255,7 @@ void ChkPostVars(char *db) {
 	if(var) {
 		if(!op) {
 			_dbmClose(db);
-			ret = _dbmOpen(db,"w",0);
+			ret = _dbmOpen(db,"w");
 			if(ret) return;
 			op = 1;
 		}
@@ -265,11 +267,11 @@ void ChkPostVars(char *db) {
 	if(var) {
 		if(!op) {
 			_dbmClose(db);
-			ret = _dbmOpen(db,"w",0);
+			ret = _dbmOpen(db,"w");
 			if(ret) return;
 			op = 1;
 		}
-#ifdef HAVE_CRYPT
+#if HAVE_CRYPT
 		_dbmReplace(db,"cfg-passwd",(char *)crypt(var->strval,"xy"));
 #else
 		_dbmReplace(db,"cfg-passwd",var->strval);
@@ -279,7 +281,7 @@ void ChkPostVars(char *db) {
 	}
 	if(op) {
 		_dbmClose(db);
-		_dbmOpen(db,"r",0);
+		_dbmOpen(db,"r");
 	}
 }
 
@@ -295,7 +297,7 @@ void PostToAccessStr(char *db) {
 	var = GetVar("file",NULL,0);
 	if(!var) return;
 	_dbmClose(db);
-	ret = _dbmOpen(db,"w",0);
+	ret = _dbmOpen(db,"w");
 	if(ret) return;
 	if(!strcmp(var->strval,"Default")) strcpy(temp,"cfg-accessALL");
 	else sprintf(temp,"cfg-access-%s",var->strval);
@@ -355,22 +357,26 @@ void PostToAccessStr(char *db) {
 		_dbmReplace(db,temp,temp2);
 	}
 	_dbmClose(db);
-	_dbmOpen(db,"r",0);
+	_dbmOpen(db,"r");
 }
 
 int CheckAccess(char *filename, long uid) {
 	VarTree *var;
-	char *s, *ss;
+	char *s, *ss, *cp;
 	char db[512], temp[512];
 	AccessInfo *actop, *ac;
+	struct re_pattern_buffer exp;
+	struct re_registers regs;
+	char fastmap[256];
 	struct stat sb;
 	int ret, allow=0;
 	static char *email_URL=NULL, *passwd_URL=NULL, *ban_URL=NULL;
-	int es, retu=0;
-	regex_t re;
-	regmatch_t subs[1];
-	char erbuf[150];
-	int err, len;
+	int es;
+
+	exp.allocated = 0;
+	exp.buffer = 0;
+	exp.translate = NULL;
+	exp.fastmap = fastmap;
 
 	if(stat(AccessDir,&sb)==-1) {
 		if(mkdir(AccessDir,0755)==-1) {
@@ -381,7 +387,7 @@ int CheckAccess(char *filename, long uid) {
 	sprintf(db,"%s/%ld-cfg",AccessDir,uid);
 
 	es = ErrorPrintState(0);
-	ret = _dbmOpen(db,"r",0);
+	ret = _dbmOpen(db,"r");
 	ErrorPrintState(es);
 	if(ret) return(0);
 
@@ -410,12 +416,12 @@ int CheckAccess(char *filename, long uid) {
 	_dbmClose(db);
 
 	while(ac) {
-		err = regcomp(&re, ac->patt, REG_EXTENDED | REG_NOSUB);
-		if(err) {
-			len = regerror(err, &re, erbuf, sizeof(erbuf));
-			Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
+		cp = GOOMBAServer_re_compile_pattern(ac->patt,strlen(ac->patt),&exp);
+		if(cp) {
+			Error("Regular Expression error in rule: %s",cp);
 			continue;	
 		}
+		GOOMBAServer_re_compile_fastmap(&exp);
 		switch(ac->type) {
 		case 0: /* domain */
 			ss = getremotehostname();
@@ -438,26 +444,15 @@ int CheckAccess(char *filename, long uid) {
 			break;
 		}
 		if(!s) { ac=ac->next; continue; }
-		err = regexec(&re, s, 1, subs, 0);
-		if(err && err!=REG_NOMATCH) {
-			len = regerror(err, &re, erbuf, sizeof(erbuf));
-			Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
-			regfree(&re);
-			return(0);
-		}
-
-		if(err==REG_NOMATCH) { 
+		ret = GOOMBAServer_re_match(&exp,s,strlen(s),0,&regs);
+		if(ret<1) { 
 			ac=ac->next; 
 			s=NULL;
-			regfree(&re);
 			continue; 
 		}
 		switch(ac->mode) {
 		case 1: /* E-Mail */
-			if(!getemailaddr()) {
-				ShowEmailPage(email_URL);
-				retu = -1;
-			}
+			if(!getemailaddr()) ShowEmailPage(email_URL);
 			break;
 		case 2: /* Allow */
 			allow++;
@@ -467,18 +462,15 @@ int CheckAccess(char *filename, long uid) {
 			break;
 		case 8: /* Password */
 			var = GetVar("PASSWORD",NULL,0);
-			if(!var || (var && strcmp(var->strval,ac->password))) {
-				ShowPasswordPage(passwd_URL);
-				retu = -1;
-			}
+			if(!var || (var && strcmp(var->strval,ac->password))) ShowPasswordPage(passwd_URL);
 			break;	
 		case 16: /* NoLogging */
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 			Logging=0;
 #endif
 			break;
 		case 32: /* Logging */
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 			Logging=1;
 #endif
 			break;
@@ -491,11 +483,10 @@ int CheckAccess(char *filename, long uid) {
 		}
 		ac = ac->next;
 		s=NULL;
-		regfree(&re);
 	}	
 	if(actop->def==0) allow--;	
 	if(allow<0) { ShowBanPage(ban_URL); return(-1); }
-	return(retu);
+	return(0);
 }
 
 void ShowBanPage(char *url) {
@@ -675,7 +666,7 @@ char *getbrowser(void) {
 }
 
 int getlogging(void) {
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 	return(Logging);
 #else
 	return(0);
@@ -683,7 +674,7 @@ int getlogging(void) {
 }
 
 void setlogging(int val) {
-#if defined(LOGGING) || defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+#if defined(LOGGING) || defined(MSQLLOGGING)
 	Logging = val;
 #endif
 }

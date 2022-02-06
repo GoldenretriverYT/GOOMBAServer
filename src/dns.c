@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,15 +19,11 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
- dns.c,v 1.9 2022/09/13 16:14:26 shane Exp $ */
-#include "GOOMBAServer.h"
-#include "parse.h"
-#ifdef HAVE_SYS_SOCKET_H
+/* $Id: dns.c,v 1.2 2022/05/30 14:47:36 rasmus Exp $ */
+#include <GOOMBAServer.h>
+#include <parse.h>
+#ifndef NT 
 #include <sys/socket.h>
-#endif
-#if WINNT|WIN32
-#include <winsock.h>
-#else
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -46,6 +42,7 @@ void GetHostByAddr(void) {
 
 
 const char *_GetHostByAddr(char *ip) {
+#ifndef NT
 	unsigned long addr;
 	static struct hostent *hp;
 
@@ -69,6 +66,9 @@ const char *_GetHostByAddr(char *ip) {
 	Debug("_GetHostByAddr returning [%s]\n",hp->h_name);
 #endif
 	return(hp->h_name);
+#else
+	return(ip);
+#endif
 }
 
 void GetHostByName(void) {
@@ -83,6 +83,7 @@ void GetHostByName(void) {
 }
 
 char *_GetHostByName(char *name) {
+#ifndef NT
 	static struct hostent *hp;
 	static struct in_addr in;
 
@@ -93,4 +94,7 @@ char *_GetHostByName(char *name) {
 	}
 	memcpy(&in.s_addr, *(hp->h_addr_list), sizeof (in.s_addr));
 	return(inet_ntoa(in));
+#else
+	return(name);
+#endif
 }

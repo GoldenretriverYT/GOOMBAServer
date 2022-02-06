@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,15 +19,14 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-#include "GOOMBAServer.h"
+/* $Id: conf.c,v 1.12 2022/05/16 15:29:17 rasmus Exp $ */
+#include <GOOMBAServer.h>
 #include <stdlib.h>
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_PWD_H
 #include <pwd.h>
-#endif
-#ifdef HAVE_CRYPT_H
+#if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
 #if APACHE
@@ -85,17 +84,17 @@ void Configuration(int argc, char **argv) {
 	} else sprintf(temp,"%s/0-cfg",ACCESS_DIR);
 
 	es = ErrorPrintState(0);		
-	ret = _dbmOpen(temp,"r",0);
+	ret = _dbmOpen(temp,"r");
 	ErrorPrintState(es);		
 	if(ret > 0) {
-		ret = _dbmOpen(temp,"n",0);
+		ret = _dbmOpen(temp,"n");
 #if DEBUG
 		Debug("Creating new configuration file [%s]\n",temp);
 #endif
 		if(ret) return;
 		_dbmInsert(temp,"cfg-file",temp);
 		pw = getpwuid(sb.st_uid);
-#ifdef HAVE_CRYPT
+#if HAVE_CRYPT
 #if BROKEN_CONFIG_PW
 		_dbmInsert(temp,"cfg-passwd",(char *)crypt("GOOMBAServer","xy"));
 #else
@@ -120,13 +119,13 @@ void Configuration(int argc, char **argv) {
 		_dbmInsert(temp,"cfg-ban-URL"," ");
 		_dbmInsert(temp,"cfg-passwd-URL"," ");
 		_dbmClose(temp);
-		ret = _dbmOpen(temp,"r",0);
+		ret = _dbmOpen(temp,"r");
 		if(ret) return;
 	}
 
 	GOOMBAServer_header(0,NULL);
 	var = GetVar("cfg-passwd",NULL,0);
-#ifdef HAVE_CRYPT
+#if HAVE_CRYPT
 	if(!var || (var && strcmp((char *)crypt(var->strval,"xy"),_dbmFetch(temp,"cfg-passwd")))) {
 #else
 	if(!var || (var && strcmp(var->strval,_dbmFetch(temp,"cfg-passwd")))) {
@@ -136,8 +135,8 @@ void Configuration(int argc, char **argv) {
 			PUTS("<body><center><h1>Incorrect Configuration Password</h1></center>\n");
 			PUTS("Please re-enter your configuration password:\n");
 		} else {
-			PUTS("<html><head><title>GOOMBAServer Configuration Password</title></head>\n");
-			PUTS("<body><center><h1>GOOMBAServer Configuration Password</h1></center>\n");
+			PUTS("<html><head><title>GOOMBAServer    Configuration Password</title></head>\n");
+			PUTS("<body><center><h1>GOOMBAServer    Configuration Password</h1></center>\n");
 			PUTS("Please enter your configuration password:\n");
 		}
 #ifdef VIRTUAL_PATH
@@ -183,8 +182,8 @@ void Configuration(int argc, char **argv) {
 #else
 	pi = getenv("PATH_INFO");
 #endif
-	PUTS("<html><head><title>GOOMBAServer Configuration Screen</title></head>\n");
-	PUTS("<body><center><h1>GOOMBAServer Configuration Screen</h1></center>\n");
+	PUTS("<html><head><title>GOOMBAServer    Configuration Screen</title></head>\n");
+	PUTS("<body><center><h1>GOOMBAServer    Configuration Screen</h1></center>\n");
 #ifndef APACHE
 	fflush(stdout);
 #endif
@@ -346,7 +345,7 @@ void Configuration(int argc, char **argv) {
 		i++;
 	}	
 
-	PUTS("<hr><i>Below you may configure URL's to be displayed whenever the stated condition occurs.  If left blank, a built-in GOOMBAServer screen will be used.</i><p>\n");
+	PUTS("<hr><i>Below you may configure URL's to be displayed whenever the stated condition occurs.  If left blank, a built-in GOOMBAServer    screen will be used.</i><p>\n");
 #if APACHE
 	sprintf(buf,"<form action=\"%s?config\" method=\"POST\">\n",sn);
 #else
@@ -381,7 +380,7 @@ void Configuration(int argc, char **argv) {
 	}
 
 	PUTS("<input type=\"submit\" value=\"Submit Changes\">\n");
-	PUTS("<hr><font size=-2><i>GOOMBAServer</i></font></body></html>\n");
+	PUTS("<hr><font size=-2><i>GOOMBAServer/FI</i></font></body></html>\n");
 #ifndef APACHE
 	fflush(stdout);
 #endif

@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -14,43 +14,27 @@
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
 *  GNU General Public License for more details.                              *
 *                                                                            *
-*  You should have received a copy of the GNU General Public License         *
-*  along with this program; if not, write to the Free Software               *
-*  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
- date.c,v 1.22 2022/10/15 18:28:06 mitch Exp $ */
+/* $Id: date.c,v 1.6 2022/05/16 15:29:18 rasmus Exp $ */
 #include <stdlib.h>
-#ifdef TM_IN_SYS_TIME
+#if TM_IN_SYS_TIME
 #include <sys/time.h>
 #else
 #include <time.h>
 #endif
 #include <string.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 
 static char *Months[] = {
-	"Jan","Feb","Mar","Apr","May","Jun","Jul",
-	"Aug","Sep","Oct","Nov","Dec"
-};
-
-static char *FullMonths[] = {
-	"January", "February", "March", "April", "May", "June", "July",
-	"August", "September", "October", "November", "December"
+	"Jan","Feb","Mar","Apr","May","June","July",
+	"Aug","Sept","Oct","Nov","Dec"
 };
 
 static char *Days[] = {
 	"Sun","Mon","Tue","Wed","Thu","Fri","Sat"
 };
-
-static char *FullDays[] = {
-	"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-};
-
-static int  GOOMBAServerday_tab[2][12] = {
-	{31,28,31,30,31,30,31,31,30,31,30,31},
-	{31,29,31,30,31,30,31,31,30,31,30,31}  };
 
 /*
  * Date
@@ -63,7 +47,7 @@ static int  GOOMBAServerday_tab[2][12] = {
  * will be output without modification:
  *
  *   year     month      day      hour   minute  second
- * Y - 2022  M - Sept  D - Sun   H - 22  i - 05  s - 08
+ * Y - 2021  M - Sept  D - Sun   H - 22  i - 05  s - 08
  * y - 95    m - 09    d - 10    h - 10  
  *                     z - (day of year 0-365) 
  *                     U - seconds since Unix Epoch (unix time format)
@@ -76,7 +60,7 @@ void Date(int arg, int type) {
 	char temp[32];
 	time_t t;
 	char *format;
-	int y,h;
+	int y;
 
 	t = time(NULL);
 	if(arg) {
@@ -92,7 +76,7 @@ void Date(int arg, int type) {
 		Error("Stack error in %s expression",type?"gmdate":"date");
 		return;
 	}
-	if(st->strval) format = (char *)st->strval;
+	if(st->strval) format = st->strval;
 	else {
 		Error("No format string specified");
 		return;
@@ -107,7 +91,8 @@ void Date(int arg, int type) {
 	while(*s) {
 		switch(*s) {
 			case 'y':
-				y = (tm1->tm_year)%100;
+				y = tm1->tm_year;
+				if(y>=100) y-=100;
 				sprintf(temp,"%02d",y);
 				strcat(out,temp);
 				break;
@@ -126,18 +111,12 @@ void Date(int arg, int type) {
 			case 'M':
 				strcat(out,Months[tm1->tm_mon]);
 				break;	
-			case 'F':
-				strcat(out,FullMonths[tm1->tm_mon]);
-				break;	
 			case 'm':
 				sprintf(temp,"%02d",tm1->tm_mon+1);
 				strcat(out,temp);
 				break;
 			case 'D':
 				strcat(out,Days[tm1->tm_wday]);
-				break;
-			case 'l':
-				strcat(out,FullDays[tm1->tm_wday]);
 				break;
 			case 'd':
 				sprintf(temp,"%02d",tm1->tm_mday);
@@ -148,10 +127,7 @@ void Date(int arg, int type) {
 				strcat(out,temp);
 				break;
 			case 'h':
-				h = tm1->tm_hour%12;
-				if(h==0) h=12;
-				sprintf(temp,"%02d",h);
-				if(temp[0]=='0') temp[0]=' ';
+				sprintf(temp,"%02d",tm1->tm_hour%12);
 				strcat(out,temp);
 				break;
 			case 'i':
@@ -162,22 +138,6 @@ void Date(int arg, int type) {
 				sprintf(temp,"%02d",tm1->tm_sec);
 				strcat(out,temp);
 				break;
-			case 'a':
-				if(tm1->tm_hour > 11) strcat(out, "pm");
-				else strcat(out,"am");
-				break;
-			case 'A':
-				if(tm1->tm_hour > 11) strcat(out, "PM");
-				else strcat(out,"AM");
-				break;
-			case '\\':
-				s++;
-				if (*s == '\\') strcat(out,"\\");
-				else {
-					sprintf(temp,"%c",*s);
-					strcat(out,temp);
-				}
-				break;
 			default:
 				sprintf(temp,"%c",*s);
 				strcat(out,temp);
@@ -185,15 +145,14 @@ void Date(int arg, int type) {
 		}
 		s++;
 	}
-	y = CheckType(out);
-	Push((char *)out,(y==LNUMBER)?LNUMBER:STRING); /* no floating point here */
+	Push(out,STRING);
 }
 
 void UnixTime(void) {
 	char temp[32];
 
 	sprintf(temp,"%ld",(long)time(NULL));
-	Push((char *)temp,LNUMBER);
+	Push(temp,LNUMBER);
 }
 
 /* arguments: hour minute second month day year */
@@ -261,80 +220,19 @@ void MkTime(int args) {
 	if(tm1.tm_min > 60 || tm1.tm_min < 0) {
 		Error("Minute argument to mktime is invalid");
 	}
-	if(tm1.tm_sec > 61 || tm1.tm_sec < 0) {
+	if(tm1.tm_sec > 61 || tm1.tm_min < 0) {
 		Error("Second argument to mktime is invalid");
 	}
-	if(tm1.tm_mon > 11 || tm1.tm_mon < 0) {
+	if(tm1.tm_mon > 11 || tm1.tm_min < 0) {
 		Error("Month argument to mktime is invalid");
 	}
-	if(tm1.tm_mday > 31 || tm1.tm_mday < 0) {
+	if(tm1.tm_mday > 31 || tm1.tm_min < 0) {
 		Error("Day of month argument to mktime is invalid");
 	}
-	if(tm1.tm_year && (tm1.tm_year > 138 || tm1.tm_year < 70)) {
+	if(tm1.tm_year > 138 || tm1.tm_year < 70) {
 		Error("Calendar times before 00:00:00 UTC, January 1, 1970 or after 03:14:07 UTS, January 19, 2038 cannot be represented by mktime");
 	}
 	t = mktime(&tm1);
 	sprintf(temp,"%ld\n",t);
-	Push((char *)temp,LNUMBER);
-}
-
-char *std_date(time_t t) {
-	struct tm *tm1;
-	static char str[80];
-	
-	tm1 = gmtime(&t);
-	sprintf(str,"%s, %02d-%s-%d %02d:%02d:%02d GMT",
-		FullDays[tm1->tm_wday],
-		tm1->tm_mday,
-		Months[tm1->tm_mon],
-		((tm1->tm_year)%100),
-		tm1->tm_hour, tm1->tm_min, tm1->tm_sec);
-	return(str);
-}
-
-/* 
- * CheckDate(month, day, year);
- *  returns True(1) if it is valid date style
- *
- */
-#define isleap(year) (((year%4) == 0 && (year%100)!=0) || (year%400)==0)
-void CheckDate(void) {
- 	Stack *s;
- 	int m, d, y;
- 	s = Pop();
- 	if(!s) {
- 		Error("Stack error in CheckDate");
- 		return;
- 	}
- 	y = s->intval;
- 	if(y<100) y += 1900;
- 
- 	s = Pop();
- 	if(!s) {
- 		Error("Stack error in CheckDate");
- 	return;
- 	}
- 	d = s->intval;
- 
- 	s = Pop();
- 	if(!s) {
- 		Error("Stack error in CheckDate");
- 		return;
- 	}
-	m = s->intval;
- 
- 	if(y<0 || y>32767) {
- 		Push("0", LNUMBER); /* False */
- 		return;
- 	}
- 	if(m<1 || m>12) {
- 		Push("0", LNUMBER); /* False */
- 		return;
- 	}
- 	if(d<1 || d>GOOMBAServerday_tab[isleap(y)][m-1]) {
- 		Push("0", LNUMBER); /* False */
- 		return;
- 	}
- 	Push("1", LNUMBER); /* True : This month,day,year arguments are valid */
-	return;
+	Push(temp,LNUMBER);
 }

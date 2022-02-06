@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,27 +19,25 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-#include "GOOMBAServer.h"
+/* $Id: log.c,v 1.17 2022/05/16 15:29:23 rasmus Exp $ */
+#include <GOOMBAServer.h>
 #include <stdlib.h>
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_SYS_FILE_H
+#if HAVE_SYS_FILE_H
 #ifndef HAVE_LOCKF
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 #include <sys/file.h>
 #endif
 #endif
 #endif
 #include <time.h>
 #include <errno.h>
-#ifdef HAVE_LIBMSQL
+#if HAVE_LIBMSQL
 #include <msql.h>
 #endif
-#ifdef HAVE_LIBMYSQL
-#include <mysql.h>
-#endif
-#include "parse.h"
+#include <parse.h>
 
 static long total_count=-1;
 static long today_count=-1;
@@ -51,21 +49,14 @@ static char *last_email=NULL;
 static char *last_ref=NULL;
 static char *last_browser=NULL;
 static char *logfile=NULL;
-static char *forcelogfile=NULL;
 static long MyUid=-1;
 static long MyInode=-1;
 #if LOGGING
 static char lbuf[1024];
 static char *dbmLogDir;
 #endif
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-static char *SQLLogDB;
-static char *SQLLogHost;
-#endif
-
-#if MYSQLLOGGING
-MYSQL *mysqlGetDbSock(void);
-MYSQL *mysqlGetPtr(void);
+#if MSQLLOGGING
+static char *MsqlLogDB;
 #endif
 
 #if APACHE
@@ -83,27 +74,23 @@ void GOOMBAServer_init_log(void) {
 	last_ref=NULL;
 	last_browser=NULL;
 	logfile=NULL;
-	forcelogfile=NULL;
 	MyUid=-1;
 	MyInode=-1;
 #if LOGGING
 	lbuf[0]='\0';
 #endif
 #if APACHE
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(conf->SQLLogDB) SQLLogDB = conf->SQLLogDB;
-	else SQLLogDB = estrdup(0,SQLLOGDB);
-	if(conf->SQLLogHost) SQLLogHost = conf->SQLLogHost;
-	else SQLLogHost = estrdup(0,SQLLOGHOST);
+#if MSQLLOGGING
+	if(conf->MsqlLogDB) MsqlLogDB = conf->MsqlLogDB;
+	else MsqlLogDB = estrdup(0,MSQLLOGDB);
 #endif
 #if LOGGING
 	if(conf->dbmLogDir) dbmLogDir = conf->dbmLogDir;
 	else dbmLogDir = estrdup(0,LOG_DIR);
 #endif
 #else
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	SQLLogDB = estrdup(0,SQLLOGDB);
-	SQLLogHost = estrdup(0,SQLLOGHOST);
+#if MSQLLOGGING
+	MsqlLogDB = estrdup(0,MSQLLOGDB);
 #endif
 #if LOGGING
 	dbmLogDir = estrdup(0,LOG_DIR);
@@ -120,7 +107,6 @@ void SetStatInfo(struct stat *sb) {
 char *filename_to_logfn(char *filename) {
 	char *lfn, *lp, *ret;
 
-	if (forcelogfile) { filename = forcelogfile; }
 	lfn = estrdup(1,filename);
 	lp = lfn;
 	while(*lp == '/') lp++;
@@ -142,9 +128,6 @@ void Log(char *filename) {
 	char key[32];
 	char buf[512];
 	char *host,*email,*ref,*browser;
-#if NOLOGSUCCESSIVE
-	char *lasthost;
-#endif
 	struct stat sb;
 	time_t t;
 	int try=0,retries=0;
@@ -173,13 +156,13 @@ void Log(char *filename) {
 	Debug("Trying to open: %s\n",temp);
 #endif
     es = ErrorPrintState(0);
-    ret = _dbmOpen(temp,"w",0);
+    ret = _dbmOpen(temp,"w");
     ErrorPrintState(es);
     if(ret > 0) {
 #if DEBUG
 		Debug("Creating new dbm logging file\n");
 #endif
-        ret = _dbmOpen(temp,"n",0);
+        ret = _dbmOpen(temp,"n");
 		if(ret) {
 			Error("Unable to create %s",temp);
 			return;
@@ -204,13 +187,6 @@ void Log(char *filename) {
 		loadlastinfo(temp,filename);
 	}
 	host = getremotehostname();	
-#if NOLOGSUCCESSIVE
-	lasthost = getlasthost();
-	if (strncmp(host?host:"",lasthost?lasthost:"",128)==0) {
-		_dbmClose(temp);
-		return;
-	}
-#endif
 	email = getemailaddr();
 	ref = getrefdoc();
 	if(ref) {
@@ -266,7 +242,7 @@ void loadlastinfo(char *dbmfile,char *filename) {
 			sprintf(temp,"%s/%ld/%s.log",dbmLogDir,MyUid,lfn);
 			logfile = temp;	
    			es = ErrorPrintState(0);
-   			ret = _dbmOpen(temp,"r",0);
+   			ret = _dbmOpen(temp,"r");
    			ErrorPrintState(es);
    			if(ret > 0) {
 				total_count = 0;
@@ -368,28 +344,27 @@ void loadlastinfo(char *dbmfile,char *filename) {
 #endif
 }
 
+char *getlastemailaddr(void) {
+#if MSQLLOGGING
+	if(!last_email) msqlloadlastinfo(NULL);
+#else
+	if(!last_email) loadlastinfo(NULL,NULL);
+#endif
+	return(last_email);
+}
+
 char *getlastbrowser(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_browser) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_browser) msqlloadlastinfo(NULL);
 #else
 	if(!last_browser) loadlastinfo(NULL,NULL);
 #endif
 	return(last_browser);
 }
 
-char *getlastemailaddr(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-        if(!last_email) sqlloadlastinfo(NULL);
-#else
-        if(!last_email) loadlastinfo(NULL,NULL);
-#endif
-        return(last_email);
-}
-
-
 char *getlasthost(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_host) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_host) msqlloadlastinfo(NULL);
 #else
 	if(!last_host) loadlastinfo(NULL,NULL);
 #endif
@@ -397,8 +372,8 @@ char *getlasthost(void) {
 }
 
 char *getlastref(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_ref) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_ref) msqlloadlastinfo(NULL);
 #else
 	if(!last_ref) loadlastinfo(NULL,NULL);
 #endif
@@ -410,8 +385,8 @@ char *getlogfile(void) {
 }
 
 time_t getstartlogging(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(start_logging==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(start_logging==-1) msqlloadlastinfo(NULL);
 #else
 	if(start_logging==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -419,8 +394,8 @@ time_t getstartlogging(void) {
 }
 
 time_t getlastaccess(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(last_access==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(last_access==-1) msqlloadlastinfo(NULL);
 #else
 	if(last_access==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -428,8 +403,8 @@ time_t getlastaccess(void) {
 }
 
 time_t getlastmod(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(last_modified==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(last_modified==-1) msqlloadlastinfo(NULL);
 #else
 	if(last_modified==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -437,8 +412,8 @@ time_t getlastmod(void) {
 }
 
 int gettotal(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(total_count==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(total_count==-1) msqlloadlastinfo(NULL);
 #else
 	if(total_count==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -447,8 +422,8 @@ int gettotal(void) {
 }
 
 int gettoday(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(today_count==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(today_count==-1) msqlloadlastinfo(NULL);
 #else
 	if(today_count==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -461,26 +436,9 @@ void GetLogFile(void) {
 	else Push(logfile,STRING);
 }
 
-void LogAs(void) {
-	Stack *s;
-	static char temp[1024];
-
-	s = Pop();
-	if (!s) {
-		Error("Stack error in LogAs");
-		return;
-	}
-
-	strncpy(temp,s->strval,1023);
-	forcelogfile = temp;
-
-	Push(forcelogfile,STRING);
-	return;
-}
-
 void GetLastHost(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_host) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_host) msqlloadlastinfo(NULL);
 #else
 	if(!last_host) loadlastinfo(NULL,NULL);
 #endif
@@ -489,8 +447,8 @@ void GetLastHost(void) {
 }
 
 void GetLastRef(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_ref) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_ref) msqlloadlastinfo(NULL);
 #else
 	if(!last_ref) loadlastinfo(NULL,NULL);
 #endif
@@ -499,8 +457,8 @@ void GetLastRef(void) {
 }
 
 void GetLastEmail(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_email) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_email) msqlloadlastinfo(NULL);
 #else
 	if(!last_email) loadlastinfo(NULL,NULL);
 #endif
@@ -511,8 +469,8 @@ void GetLastEmail(void) {
 }
 
 void GetLastBrowser(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!last_browser) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(!last_browser) msqlloadlastinfo(NULL);
 #else
 	if(!last_browser) loadlastinfo(NULL,NULL);
 #endif
@@ -523,8 +481,8 @@ void GetLastBrowser(void) {
 void GetLastAccess(void) {
 	char temp[32];
 
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(last_access==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(last_access==-1) msqlloadlastinfo(NULL);
 #else
 	if(last_access==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -538,8 +496,8 @@ void GetLastAccess(void) {
 void GetStartLogging(void) {
 	char temp[32];
 
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(start_logging==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(start_logging==-1) msqlloadlastinfo(NULL);
 #else
 	if(start_logging==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -553,8 +511,8 @@ void GetStartLogging(void) {
 void GetLastMod(void) {
 	char temp[32];
 
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(last_modified==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(last_modified==-1) msqlloadlastinfo(NULL);
 #else
 	if(last_modified==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -568,8 +526,8 @@ void GetLastMod(void) {
 void GetTotal(void) {
 	char temp[32];
 
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(total_count==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(total_count==-1) msqlloadlastinfo(NULL);
 #else
 	if(total_count==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -583,8 +541,8 @@ void GetTotal(void) {
 void GetToday(void) {
 	char temp[32];
 
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(today_count==-1) sqlloadlastinfo(NULL);
+#if MSQLLOGGING
+	if(today_count==-1) msqlloadlastinfo(NULL);
 #else
 	if(today_count==-1) loadlastinfo(NULL,NULL);
 #endif
@@ -600,27 +558,15 @@ char *getlogdir(void) {
 	if(!dbmLogDir) return(LOG_DIR);
 	else return(dbmLogDir);
 #endif
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!SQLLogDB) return(SQLLOGDB);
-	else return(SQLLogDB);
+#if MSQLLOGGING
+	if(!MsqlLogDB) return(MSQLLOGDB);
+	else return(MsqlLogDB);
 #endif
 	return NULL;
 }
 
 void GetLogDir(void) {
 	Push(getlogdir(),STRING);
-}
-
-char *getloghost(void) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
-	if(!SQLLogHost) return(SQLLOGHOST);
-	else return(SQLLogHost);
-#endif
-	return NULL;
-}
-
-void GetLogHost(void) {
-	Push(getloghost(),STRING);
 }
 
 void GetMyUid(void) {
@@ -717,95 +663,42 @@ void GetMyInode(void) {
 	Push(temp,LNUMBER);
 }
 
-void SQLLog(char *filename) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+void MsqlLog(char *filename) {
+#if MSQLLOGGING
 	char query[512];
 	long uid;
-#if MSQLLOGGING
 	int dbsock, lockfd;
-	m_result *result;
-	m_row record;
-	char lockfn[64];
-	char *pfn;
-#endif
-#if MYSQLLOGGING
-	MYSQL *dbsock,*mysql;
-	MYSQL_RES *result=NULL;
-	MYSQL_ROW record;
-#endif
 	time_t t, la;	
 	struct tm *tm1;
 	int day1, day2;
-	char *s,*fn,*host,*email,*lref,*ref,*browser;
-#if NOLOGSUCCESSIVE
-	char *lasthost;
-#endif
-	char hs=0,es=0,ls=0,bs=0;
+	char *s,*fn, *pfn,*host,*email,*lref,*ref,*browser;
+	char lockfn[64];
+	m_result *result;
+	m_row record;
 
 #if DEBUG
-	Debug("SQLLog called for file: [%s]\n",filename?filename:"null");
+	Debug("MsqlLog called for file: [%s]\n",filename?filename:"null");
 #endif
 
-#if MSQLLOGGING 
 	dbsock = msqlGetDbSock();
 	if(dbsock==-1) {
-#endif
-#if MYSQLLOGGING
-	dbsock = mysqlGetDbSock();
-	mysql = mysqlGetPtr();
-	if(dbsock==NULL) {
-#endif
-		if(SQLLogHost && strcasecmp(SQLLogHost,"localhost")) 
-#if MSQLLOGGING
-			dbsock = msqlConnect(SQLLogHost);
-#endif
-#if MYSQLLOGGING
-			dbsock = mysql_connect(mysql,SQLLogHost,0,0);
-#endif
-		else
-#if MSQLLOGGING
-			dbsock = msqlConnect(NULL);
-#endif
-#if MYSQLLOGGING
-			dbsock = mysql_connect(mysql,"localhost",0,0);
-#endif
-#if MSQLLOGGING
+		dbsock = msqlConnect(NULL);
 		if(dbsock<0) {
-#endif
-#if MYSQLLOGGING
-		if(dbsock==NULL) {
-#endif
-			Error("Unable to connect to sql daemon");
+			Error("Unable to connect to msql daemon");
 			return;
 		}
 	}
-#if MSQLLOGGING
-	if(msqlSelectDB(dbsock,SQLLogDB)<0) {
+	if(msqlSelectDB(dbsock,MsqlLogDB)<0) {
 		msqlClose(dbsock);
-		Error("Unable to select msql logging database (%s) - %s",SQLLogDB,msqlErrMsg);
+		Error("Unable to select msql logging database (%s) - %s",MsqlLogDB,msqlErrMsg);
 		return;
 	}
-	msqlSetCurrent(dbsock,SQLLogDB);
-#endif
-#if MYSQLLOGGING
-	if(mysql_select_db(dbsock,SQLLogDB)<0) {
-		mysql_close(dbsock);
-		Error("Unable to select mysql logging database (%s)",SQLLogDB);
-		return;
-	}
-	mysqlSetCurrent(dbsock,SQLLogDB);
-#endif
+	msqlSetCurrent(dbsock,MsqlLogDB);
 
 	uid = getmyuid();
 	t = time(NULL);
 
 	host = getremotehostname();	
-#if NOLOGSUCCESSIVE
-	lasthost = getlasthost();
-	if (strncmp(host?host:"",lasthost?lasthost:"",128)==0) {
-		return;
-	}
-#endif
 	email = getemailaddr();
 	ref = getrefdoc();
 	lref=NULL;
@@ -816,59 +709,34 @@ void SQLLog(char *filename) {
 		if(strlen(lref)>128) lref[127]='\0';	
 	}
 	browser = getbrowser();	
-	if (forcelogfile) { 
-		fn = forcelogfile; 
-	}
-	else if(!filename || (filename && strlen(filename)<1)) fn = GetCurrentFilename();
+#if DEBUG
+	Debug("MsqlLog: filename = [%s]\n",filename?filename:"null");
+#endif
+	if(!filename || (filename && strlen(filename)<1)) fn = GetCurrentFilename();
 	else fn = filename;
 
-	if(fn && strlen(fn)>63) {
-		fn += strlen(fn)-63;
-	}
-	if(host && strlen(host)>63) {
-		hs = host[63];
-		host[63]='\0';	
-	}	
-	if(email && strlen(email)>63) {
-		es = email[63];
-		email[63] = '\0';
-	}
-	if(lref && strlen(lref)>63) {
-		ls = lref[63];
-		lref[63]='\0';
-	}
-	if(browser && strlen(browser)>63) {
-		bs = browser[63];
-		browser[63]='\0';
-	}
 	sprintf(query,"insert into log%ld values (%ld,'%s','%s','%s','%s','%s')",
 		uid,t,fn,host?host:"",email?email:"",lref?lref:"",browser?browser:"");
 #if DEBUG
 	Debug("Sending query: %s\n",query);
 #endif	
-#if MSQLLOGGING
 	if(msqlQuery(dbsock,query)<0) {
-#endif
-#if MYSQLLOGGING
-	if(mysql_query(dbsock,query)<0) {
 #if DEBUG
-		Debug("Query failed! (%s)\n",mysql_error(mysql));
-#endif
+		Debug("Query failed! (%s)\n",msqlErrMsg);
 #endif
 	}
 
 	/* Atomically read and increment total and today counters */		
-#if MSQLLOGGING
 	sprintf(query,"select total,today,timestamp from last%ld where filename='%s'",uid,fn);
 	pfn = filename_to_logfn(filename);
-	sprintf(lockfn,"%s/%s%ld.lck",SQLLOGTMP,pfn,uid);
+	sprintf(lockfn,"%s/%s%ld.lck",MSQLLOGTMP,pfn,uid);
 	/* Lock database */
 	lockfd = open(lockfn,O_RDWR|O_CREAT,0644);
 	if(lockfd) {
-#ifdef HAVE_LOCKF
+#if HAVE_LOCKF
 		lockf(lockfd,F_LOCK,0);
 #else
-#ifdef HAVE_FLOCK
+#if HAVE_FLOCK
 		flock(lockfd,LOCK_EX);
 #endif
 #endif
@@ -917,120 +785,45 @@ void SQLLog(char *filename) {
 			}
 		}
 	}
-#endif
-#if MYSQLLOGGING
-	sprintf(query,"select total,today,timestmp from last%ld where filename='%s'",uid,fn);
-#if DEBUG
-        Debug("Sending query: %s\n",query);
-#endif
-	if(mysql_query(dbsock,query)<0){
-#if DEBUG
-                Debug("Query failed! (%s)\n",mysql_error(mysql));
-#endif
-	} else {
-		result = mysql_store_result(dbsock);
-		if(result && mysql_num_rows(result)>0){
-			mysql_data_seek(result,0);
-			record = mysql_fetch_row(result);
-			if(record) {
-				total_count = atol(record[0]);
-                                today_count = atol(record[1]);
-                                la = atol(record[2]);
-                        } else {
-                                total_count = 0;
-                                today_count = 0;
-                                la = 0;
-                        }
-			mysql_free_result(result);
-		} else {
-			total_count = 0;
-                        today_count = 0;
-                        la = 0;
-                        sprintf(query,"insert into last%ld values ('%s',%ld,0,0,%ld,'%s','%s','%s','%s')",
-                                uid,fn,t,t,host?host:"",email?email:"",lref?lref:"",browser?browser:"");
-#if DEBUG
-                        Debug("Sending query: %s\n",query);
-#endif
-			if(mysql_query(dbsock,query)<0) {
-#if DEBUG
-                Debug("Query failed! (%s)\n",mysql_error(mysql));
-#endif
-			}
-		}
-	}
-#endif
 	tm1 = localtime((time_t *)(&la));
 	day1 = tm1->tm_yday;
 	tm1 = localtime(&t);
 	day2 = tm1->tm_yday;
 	if(day1 != day2) today_count = 0;	
-#if MSQLLOGGING
 	total_count++;
 	today_count++;
 	sprintf(query,
 		"update last%ld set timestamp=%ld,total=%ld,today=%ld,host='%s',email='%s',lref='%s',browser='%s' where filename='%s'",
 		uid,t,total_count,today_count,host?host:"",email?email:"",lref?lref:"",browser?browser:"",fn);
-#endif
-#if MYSQLLOGGING
-	total_count++;
-        today_count++;
-	sprintf(query,
-		"update last%ld set timestmp=%ld,total=%ld,today=%ld,host='%s',email='%s',lref='%s',browser='%s' where filename='%s'",
-		uid,t,total_count,today_count,host?host:"",email?email:"",lref?lref:"",browser?browser:"",fn);
-	
-#endif
 #if DEBUG
 	Debug("Sending query: %s\n",query);
 #endif
-#if MSQLLOGGING
 	if(msqlQuery(dbsock,query)<0) {
-#endif
-#if MYSQLLOGGING
-	if(mysql_query(dbsock,query)<0) {
 #if DEBUG
-	Debug("Sending query: %s\n",query);
-#endif 
-		
+		Debug("Query failed! (%s)\n",msqlErrMsg);
 #endif
 	}
-#ifdef HAVE_LOCKF
-#if MSQLLOGGING
+#if HAVE_LOCKF
 	lockf(lockfd,F_ULOCK,0);
 	close(lockfd);
-#endif
 #else
-#ifdef HAVE_FLOCK
-#if MSQLLOGGING
+#if HAVE_FLOCK
 	flock(lockfd,LOCK_UN);
 	close(lockfd);
 #endif
 #endif
-#endif
-#if MSQLLOGGING
 	unlink(lockfn);
-#endif
-	if(hs) host[63]=hs;
-	if(es) email[63]=es;
-	if(ls) lref[63]=ls;
-	if(bs) browser[63]=bs;
 #endif
 }
 
-void sqlloadlastinfo(char *filename) {
-#if defined(MSQLLOGGING) || defined(MYSQLLOGGING)
+void msqlloadlastinfo(char *filename) {
+#if MSQLLOGGING
 	char *lfn;
 	char query[128];
 	long uid, la;
-#if MSQLLOGGING
 	int dbsock;
 	m_result *result;
 	m_row record;
-#endif
-#if MYSQLLOGGING
-	MYSQL *dbsock,*mysql;
-	MYSQL_RES *result=NULL;
-	MYSQL_ROW record;
-#endif
 	time_t t;	
 	struct tm *tm1;
 	int day1, day2;
@@ -1049,92 +842,34 @@ void sqlloadlastinfo(char *filename) {
 		else lfn = filename;
 	}
 
-#if MSQLLOGGING
 	dbsock = msqlGetDbSock();
 	if(dbsock==-1) {
-#endif
-#if MYSQLLOGGING
-	dbsock = mysqlGetDbSock();
-	mysql = mysqlGetPtr();
-	if(dbsock==NULL) {
-#endif
-		if(SQLLogHost && strcasecmp(SQLLogHost,"localhost")) 
-#if MSQLLOGGING
-			dbsock = msqlConnect(SQLLogHost);
-#endif
-#if MYSQLLOGGING
-			dbsock = mysql_connect(mysql,SQLLogHost,0,0);
-#endif
-		else
-#if MSQLLOGGING
-			dbsock = msqlConnect(NULL);
-#endif
-#if MYSQLLOGGING
-			dbsock = mysql_connect(mysql,"localhost",0,0);
-#endif
-#if MSQLLOGGING
+		dbsock = msqlConnect(NULL);
 		if(dbsock<0) {
-#endif
-#if MYSQLLOGGING
-		if(dbsock==NULL) {
-#endif
-			Error("Unable to connect to sql daemon");
+			Error("Unable to connect to msql daemon");
 			return;
 		}
 	}
-#if MSQLLOGGING
-	if(msqlSelectDB(dbsock,SQLLogDB)<0) {
+	if(msqlSelectDB(dbsock,MsqlLogDB)<0) {
 		msqlClose(dbsock);
-#endif
-#if MYSQLLOGGING
-	if(mysql_select_db(dbsock,SQLLogDB)<0) {
-		mysql_close(dbsock);
-#endif
-		Error("Unable to select sql logging database (%s)",SQLLogDB);
+		Error("Unable to select msql logging database (%s)",MsqlLogDB);
 		return;
 	}
-#if MSQLLOGGING
-	msqlSetCurrent(dbsock,SQLLogDB);
-#endif
-#if MYSQLLOGGING
-	mysqlSetCurrent(dbsock,SQLLogDB);
-#endif
+	msqlSetCurrent(dbsock,MsqlLogDB);
 	
 	sprintf(query,"select * from last%ld where filename='%s'",uid,lfn);
 #if DEBUG
-	Debug("sqlloadlastinfo: Sending query: %s\n",query);
+	Debug("msqlloadlastinfo: Sending query: %s\n",query);
 #endif
-#if MSQLLOGGING
 	if(msqlQuery(dbsock,query)<0) {
-#endif
-#if MYSQLLOGGING
-	if(mysql_query(dbsock,query)<0) {
-#endif
 #if DEBUG
-#if MSQLLOGGING
 		Debug("Query failed! (%s)\n",msqlErrMsg);
 #endif
-#if MYSQLLOGGING
-		Debug("Query failed! (%s)\n",mysql_error(mysql));
-#endif
-#endif
 	} else {
-#if MSQLLOGGING
 		result = msqlStoreResult();
-#endif
-#if MYSQLLOGGING
-		result = mysql_store_result(dbsock);
-#endif
-#if MSQLLOGGING
 		if(result && msqlNumRows(result)>0) {
 			msqlDataSeek(result,0);
 			record = msqlFetchRow(result);
-#endif
-#if MYSQLLOGGING
-		if(result && mysql_num_rows(result)>0) {
-			mysql_data_seek(result,0);
-			record = mysql_fetch_row(result);
-#endif
 			last_access = atol(record[1]);
 			la = last_access;
 			total_count = atol(record[2]);	
@@ -1150,12 +885,7 @@ void sqlloadlastinfo(char *filename) {
 			last_email = estrdup(0,record[6]);
 			last_ref = estrdup(0,record[7]);
 			last_browser = estrdup(0,record[8]);
-#if MSQLLOGGING
 			msqlFreeResult(result);
-#endif
-#if MYSQLLOGGING
-			mysql_free_result(result);
-#endif
 		}
 	}	
 #endif

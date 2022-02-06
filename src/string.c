@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,12 +19,12 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
- string.c,v 1.30 2022/09/18 20:31:16 shane Exp $ */
+/* $Id: string.c,v 1.9 2022/05/16 15:29:30 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 
 static char nullstr[1] = {'\0'};
 
@@ -57,7 +57,7 @@ void GetType(void) {
 
 	s = Pop();
 	if(!s) {
-		Error("Stack Error in gettype function");
+		Error("Stack Error in strval function");
 		return;
 	}
 	switch(s->type) {
@@ -129,7 +129,6 @@ void StrTok(int init) {
 	static char *pos2=NULL;
 	char *temp=NULL;
 	char *token=NULL;
-	char *first=NULL;
 
 	s = Pop();
 	if(!s) {
@@ -156,12 +155,7 @@ void StrTok(int init) {
 		pos2=NULL;
 	}
 	if(pos1 && *pos1) {
-		for (/* NOP */;token && *token;token++) {
-			pos2 = strchr(pos1,(int) *token);
-			if (!first || (pos2 && pos2 < first))
-				first = pos2;
-		} /* NB: token is unusable now */
-		pos2 = first;
+		pos2 = strstr(pos1,token);
 		if(pos2) {
 			*pos2='\0';
 		}	
@@ -266,7 +260,7 @@ void StrrChr(void) {
 
 	s = Pop();
 	if(!s) {
-		Error("Stack Error in strchr function");
+		Error("Stack Error in strstr function");
 		return;
 	}
 	a = estrdup(1,s->strval);
@@ -280,11 +274,7 @@ void StrrChr(void) {
 /* args s,m,n */
 void SubStr(void) {
 	Stack *s;
-#if WINNT|WIN32
-	unsigned int m,n;
-#else
 	int m,n;
-#endif
 	char *str;
 
 	s = Pop();
@@ -319,28 +309,8 @@ void SubStr(void) {
 	Push(&str[m],STRING);
 }
 
-char *GOOMBAServer_urlencode(char *s) {
-	register int x,y;
-	char *str;
-
-	str = emalloc(1,3 * strlen(s) + 1); 
-    for(x=0,y=0; s[x]; x++,y++) {
-		str[y] = s[x];
-		if(str[y]==' ') {
-			str[y]='+';
-		} else if((str[y] < '0' && str[y]!='-' && str[y]!='.' && str[y]!='/') ||
-		   (str[y] < 'A' && str[y] >'9') ||
-		   (str[y] > 'Z' && str[y] <'a' && str[y]!='_') ||
-		   (str[y] > 'z')) {
-            sprintf(&str[y],"%%%02x",(unsigned char)s[x]);
-            y+=2;
-        }
-    }
-    str[y] = '\0';
-	return(str);
-}
-
 void UrlEncode(void) {
+	register int x,y;
 	char *str;
    	Stack *s;        
 	
@@ -353,24 +323,19 @@ void UrlEncode(void) {
 		Push("",STRING);
 		return;
 	}
-	str = GOOMBAServer_urlencode(s->strval);
+	str = emalloc(1,3 * strlen(s->strval) + 1); 
+    for(x=0,y=0; s->strval[x]; x++,y++) {
+		str[y] = s->strval[x];
+		if((str[y] < '0' && str[y]!='-' && str[y]!='.') ||
+		   (str[y] < 'A' && str[y] >'9') ||
+		   (str[y] > 'Z' && str[y] <'a' && str[y]!='_') ||
+		   (str[y] > 'z')) {
+            sprintf(&str[y],"%%%02x",s->strval[x]);
+            y+=2;
+        }
+    }
+    str[y] = '\0';
 	Push(str,STRING);
-}
-
-void UrlDecode(void) {
-	Stack *s;
-
-	s = Pop();
-	if(!s) {
-		Error("Stack Error in urldecode function");
-		return;
-	}
-	if(!*s->strval) {
-		Push("",STRING);
-		return;
-	}
-	parse_url(s->strval);
-	Push(s->strval, STRING);	
 }
 
 void QuoteMeta(void) {
@@ -392,7 +357,7 @@ void QuoteMeta(void) {
 		str[y] = s->strval[x];
 		if(str[y]=='.' || str[y]=='\\' || str[y]=='+' ||
 		   str[y]=='*' || str[y]=='?' || str[y]=='[' ||
-		   str[y]=='^' || str[y]=='$' || str[y]=='(' || str[y]==')') {
+		   str[y]=='^' || str[y]=='$' ) {
             sprintf(&str[y],"\\%c",s->strval[x]);
             y+=1;
         }
@@ -423,7 +388,7 @@ void UcFirst(void) {
 
 	s = Pop();
 	if(!s) {
-		Error("Stack Error in ucfirst function");
+		Error("Stack Error in ord function");
 		return;
 	}
 	if(!*s->strval) {
@@ -434,91 +399,50 @@ void UcFirst(void) {
 	Push(s->strval,s->type);
 }
 
-void Sprintf(int argc) {
-	Stack *s=NULL;
-	Stack sarg[5]; /* Max 5 args to keep things simple in the parser */
-	int num=0, done=0, type, concat_len=0;
-	char *format,*t,*beg,*fmt,*buf,*concat;
+void Sprintf(void) {
+	Stack *s;
+	char *temp;
+	int len, targ, type;
+	char *sarg, *t;
+	long larg;
+	double darg;
 
-	num = argc;
-	while(num) {
-		s = Pop();
-		if(!s) {
-			Error("Stack error in sprintf");
-			return;
-		}
-		num--;
-		memcpy(&(sarg[num]),s,sizeof(Stack));
-		if(s->strval) sarg[num].strval = estrdup(1,s->strval);
-	}
 	s = Pop();
 	if(!s) {
-		Error("No format string");
-		Push("", STRING);
+		Error("Stack error in sprintf");
 		return;
 	}
-	format = estrdup(1,s->strval);	
-	t = format;
-	num=0;
-	concat = (char *) "";  /* some dummy starting value */
-	while(num<argc && !done) {
-		type = FormatCheck(&t,&beg,&fmt);
-		if(type==0 || type==-1) break;
-		if(beg && *beg) {
-			buf = emalloc(1,strlen(concat)+strlen(beg) + ECHO_BUF);
-			strcpy(buf, concat);
-			strcat(buf, beg); 
-			concat = buf;
-		}
-		if(type==1) {
-			buf = emalloc(1,strlen(concat)+strlen("%") + ECHO_BUF);
-			strcpy(buf, concat);
-			strcat(buf, "%");
-			concat = buf;
-			continue;
-		}
-		switch(type) {
-			case LNUMBER:
-                        ParseEscapes(fmt);
-                        StripSlashes(fmt);
-			concat_len = strlen(concat);
-                        buf = emalloc(1,concat_len+strlen(fmt)+strlen(sarg[num].strval)+ECHO_BUF);
-                        strcpy(buf, concat);
-                        sprintf(&buf[concat_len],fmt,sarg[num].intval);
-                        concat = buf;
-                        num++;
-                        break;
-			case DNUMBER:
-                        ParseEscapes(fmt);
-                        StripSlashes(fmt);
-			concat_len = strlen(concat);
-                        buf = emalloc(1,concat_len+strlen(fmt)+strlen(sarg[num].strval)+ECHO_BUF);
-                        strcpy(buf, concat);
-                        sprintf(&buf[concat_len],fmt,sarg[num].douval);
-                        concat = buf;
-                        num++;
-                        break;
-			case STRING:
-                        ParseEscapes(fmt);
-                        StripSlashes(fmt);
-                        ParseEscapes(sarg[num].strval);
-                        StripSlashes(sarg[num].strval);
-			concat_len = strlen(concat);
-                        buf = emalloc(1,concat_len+strlen(fmt)+strlen(sarg[num].strval)+ECHO_BUF);
-                        strcpy(buf, concat);
-                        sprintf(&buf[concat_len],fmt,sarg[num].strval);
-                        concat = buf;
-                        num++;
-                        break;
-		}
+	sarg = estrdup(1,s->strval);
+	larg = s->intval;
+	darg = s->douval;	
+	targ = s->type;
+	s = Pop();
+	if(!s) {
+		Error("Stack error in sprintf");
+		return;
 	}
-	if(t && *t) {
-		buf = emalloc(1,strlen(concat) + strlen(t) + ECHO_BUF);
-		strcpy(buf, concat);
-		strcat(buf, t);
-		concat = buf;
+	len = 2 * (strlen(s->strval) + strlen(sarg) + ECHO_BUF); 
+	temp = emalloc(1,len);
+	t = s->strval;
+	while(1) {
+		type = FormatCheck(&t,NULL,NULL);
+		if(type!=1) break;
 	}
-	Push(concat, STRING);
+	switch(type) {
+		case LNUMBER:
+			sprintf(temp,s->strval,larg);
+			break;
+		case DNUMBER:
+			sprintf(temp,s->strval,darg);
+			break;
+		case STRING:
+			sprintf(temp,s->strval,sarg);
+			break;
+		case 0:
+			strcpy(temp,s->strval);
+			break;
+	}
+	Push(temp,STRING);
 }
 
 void Chr(void) {
@@ -535,75 +459,5 @@ void Chr(void) {
 		return;
 	}
 	sprintf(temp,"%c",(char)s->intval);
-	Push(temp,STRING);
-}
-
-void Chop(void) {
-	Stack *s;
-	char *ns,*p;
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in Chop function");
-		return;
-	}
-	ns = estrdup(1,s->strval);
-	p = ns + strlen(ns) - 1;
-	while(isspace(*p) && p>=ns) p--;
-	*(p+1)='\0';	
-	Push(ns,STRING);
-}
-
-char *_StrTr(char *string, char *str_from, char *str_to) { 
-	char xlat[256];
-#if WINNT|WIN32
-	unsigned int i, len1, len2;
-#else
-	int i,len1,len2;
-#endif
-	len1=strlen(str_from);
-	len2=strlen(str_to);
-
-	if (len1>len2) {
-		str_from[len2]='\0';
-		len1=len2;
-	}
-   
-	for(i=0;i<256;xlat[i]=i,i++);
-	for(i=0;i<len1;xlat[(unsigned char)str_from[i]]=str_to[i],i++);
-	for(i=0;i<strlen(string);string[i]=xlat[(unsigned char)string[i]],i++);
-
-	return string;
-}
-
-void StrTr(void) { /* strtr(STRING,FROM,TO) */
-	Stack *s;
-	char *string;
-	char *str_from;
-	char *str_to;
-	char temp[1] = { '\0' };
-                
-	s = Pop();
-	if(!s) {
-		Error("Stack error in strtr");
-		return;
-	}
-	if(s->strval) str_to = (char *)estrdup(1,s->strval);
-	else str_to = temp;
-	s = Pop();
-	if(!s) {
-		Error("Stack error in strtr");
-		return;
-	}
-	if(s->strval) str_from = (char *)estrdup(1,s->strval);
-	else str_from = temp;
-	s = Pop();
-	if(!s) {  
-		Error("Stack error in strtr");
-		return;
-	}
-	if(s->strval) string = (char *)estrdup(1,s->strval);
-	else string = temp;
-
-	Push(_StrTr(string , str_from, str_to),STRING);
+	Push(temp,LNUMBER);
 }

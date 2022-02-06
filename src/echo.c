@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,15 +19,16 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: echo.c,v 1.21 2022/05/27 12:36:25 rasmus Exp $ */
 #include <stdlib.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 #if APACHE
 #include "http_protocol.h"
 #endif
 #include <stdarg.h>
 
-void Echo(char *format, int args) {
+void Echo(unsigned char *format, int args) {
 	Stack *s=NULL;
 	Stack sarg[5]; /* Max 5 args to keep things simple in the parser */
 #if APACHE
@@ -36,6 +37,9 @@ void Echo(char *format, int args) {
 	int num=args, done=0, type;
 	char *t,*st,*beg,*fmt;
 
+#if DEBUG
+	Debug("Calling GOOMBAServer_header from Echo\n");
+#endif
 	GOOMBAServer_header(0,NULL);
 	while(num) {	
 		s = Pop();
@@ -56,18 +60,8 @@ void Echo(char *format, int args) {
 		}
 		return;
 	}
-
-        /* if format contains $var, we must expand it */
-	if (strchr(format, VAR_INIT_CHAR))
-	{
-		Stack * var;
-
-		Push(format, STRING);
-		var = Pop();
-		if (var && var->strval)  format = estrdup(1, var->strval);
-	}
+	st = t;
 	ParseEscapes(format);
-	StripSlashes(format);
 	t = format;
 	num=0;
 	while(num<args && !done) {	
@@ -127,10 +121,9 @@ void Echo(char *format, int args) {
 	}
 }
 
-/* 
- * Originally from Perl 5, and copyright'd to Larry Wall, but I've rewritten
+/* originally from Perl 5, and copyright'd to Larry Wall, but I've rewritten
  * so much now that, aside from the quote below and a few odd
- * ideosyncrasies, it is entirely unrecognizable.
+ * ideosyncrasies (sp?), it is entirely unrecognizable.
  *
  * Please note that this is not an example of my finest coding abilities. :( 
  * Tim Vanderhoek (ac199@freenet.hamilton.on.ca)
@@ -201,7 +194,7 @@ int FormatCheck(char **format, char **beg, char **fmt) {
 				Error ("Unsupported flag or modifier in %%c in echo format string");
 				done=-1;
 			} else {
-				done=LNUMBER;
+				done=STRING;
 			}
 			break;
 
@@ -281,18 +274,6 @@ int FormatCheck(char **format, char **beg, char **fmt) {
 	return(done);
 }
 
-void _StripSlashes(void) {
-	Stack *s;
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in StripSlashes()\n");
-		return;
-	}
-	StripSlashes(s->strval);
-	Push(s->strval,STRING);
-}
-
 void StripSlashes(char *string) {
 	char *s,*t;
 	int l;
@@ -314,48 +295,9 @@ void StripSlashes(char *string) {
 	if(s!=t) *s='\0';
 }
 
-void StripDollarSlashes(char *string) {
-	char *s,*t;
-	int l;
-
-	l = strlen(string); 
-	s = string;
-	t = string;
-	while(*t && l>0) {
-		if(*t=='\\' && *(t+1)=='$') {
-			t++;
-			*s++=*t++;
-			l-=2;
-		} else if(*t=='\\' && *(t+1)=='\\') {
-			if(s!=t) *s++=*t++;
-			else { s++; t++; }
-			l--;
-			if(s!=t) *s++=*t++;
-			else { s++; t++; }
-			l--;
-		} else {
-			if(s!=t) *s++=*t++;
-			else { s++; t++; }
-			l--;
-		}
-	}
-	if(s!=t) *s='\0';
-}
-
-void _AddSlashes(void) {
-	Stack *s;
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in AddSlashes()\n");
-		return;
-	}
-	Push(AddSlashes(s->strval,0),STRING);
-}
-
 /* 
  * If freeit is non-zero, then this function is allowed to free the
- * argument string.  If zero, it cannot free it.
+ * argument string.  If zero, it cannot free it
  */
 char *AddSlashes(char *string, int freeit) {
 	static char *temp=NULL;
@@ -385,24 +327,44 @@ char *AddSlashes(char *string, int freeit) {
 			if(temp!=string) strcpy(string,temp);
 		}
 	}
-#if HAVE_LIBPQ
-	if(strchr(string,'\"')) {
-		temp = _RegReplace("\"","\\\"",string);
-		if(freeit) {
-			if(temp!=string) string=temp;
-		} else {
-			if(temp!=string) strcpy(string,temp);
-		}
-	}
-#endif
 #endif
 	return(string);
 }
 
+#if 0
 void ParseEscapes(char *string) {
-	char *s,*t, *r;
-	char sv;
-	int l,i;
+	char *s,*t;
+	int l;
+
+	l = strlen(string); 
+	s = string;
+	t = string;
+	while(*t && l>0) {
+		if(*t=='\\' && *(t+1)=='n' && (t==string || ((t-1)>=string && *(t-1)!='\\'))) {
+			t+=2;
+			*s++='\n';
+			l-=2;
+		} else if(*t=='\\' && *(t+1)=='t' && (t==string || ((t-1)>=string && *(t-1)!='\\'))) {
+			t+=2;
+			*s++='\t';
+			l-=2;
+		} else if(*t=='\\' && *(t+1)=='r' && (t==string || ((t-1)>=string && *(t-1)!='\\'))) {
+			t+=2;
+			*s++='\r';
+			l-=2;
+		} else {
+			if(s!=t) *s++=*t++;
+			else { s++; t++; }
+			l--;
+		}
+	}
+	if(s!=t) *s='\0';
+}
+#endif
+
+void ParseEscapes(char *string) {
+	char *s,*t;
+	int l;
 
 	l = strlen(string); 
 	s = string;
@@ -424,44 +386,6 @@ void ParseEscapes(char *string) {
 		} else if(*t=='\\' && *(t+1)=='r') {
 			t+=2;
 			*s++='\r';
-			l-=2;
-		} else if(*t=='\\' && *(t+1)=='a') {
-			t+=2;
-			*s++=7;
-			l-=2;
-		} else if(*t=='\\' && *(t+1)=='b') {
-			t+=2;
-			*s++=8;
-			l-=2;
-		} else if(*t=='\\' && *(t+1)>='0' && *(t+1)<='7') {
-			r=t+1;
-			i=0;
-			while(*r >='0' && *r <='7' && i<3) {
-				i++;
-				r++;
-			}
-			sv = *r;
-			*r='\0';	
-			*s++=_OctDec(t+1);
-			t+=1+i;
-			*r = sv;	
-			l-=2;
-		} else if(*t=='\\' && (*(t+1)=='x' || *(t+1)=='X')) {
-			r=t+2;
-			i=0;
-			while(((*r >='0' && *r <='9') || (*r >='a' && *r <='f') || (*r >='A' && *r <='F')) && i<2) {
-				i++;
-				r++;
-			}
-			sv = *r;
-			*r='\0';	
-			*s++=_HexDec(t+1);
-			t+=2+i;
-			*r = sv;	
-			l-=2;
-		} else if(*t=='\\') {
-			*s++=*(t+1);
-			t+=2;
 			l-=2;
 		} else {
 			if(s!=t) *s++=*t++;

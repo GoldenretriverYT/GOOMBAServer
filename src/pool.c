@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,6 +19,7 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: pool.c,v 1.12 2022/05/26 03:23:35 rasmus Exp $ */
 /*
  * Memory Pool Management with hooks for Apache sub-pool handling
  * for Apache module
@@ -28,8 +29,8 @@
 #define MAXSUBPOOLS 3
 
 #include <stdlib.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 
 #ifndef APACHE
 #define GOOMBAServer_BLOCK_MINFREE 8192     
@@ -44,16 +45,6 @@ static long GOOMBAServer_pool_size[] = { 0L, 0L, 0L };
 static long max_data_space=DEFAULT_MAX_DATA_SPACE;
 static int already_over=0;
 
-#if DEBUG
-static int memdbg=0;
-#endif
-
-#if APACHE
-static void GOOMBAServer_cleanup(void *ptr) {
-	Exit(0);
-}
-#endif
-
 #if APACHE
 void GOOMBAServer_init_pool(GOOMBAServer_module_conf *conf) {
 #else
@@ -66,11 +57,7 @@ void GOOMBAServer_init_pool(void) {
 		GOOMBAServer_pool_size[i] = 0L;
 	}	
 #if APACHE
-	if (conf->MaxDataSpace) max_data_space = conf->MaxDataSpace*1024;
-	else max_data_space = DEFAULT_MAX_DATA_SPACE*1024;
-	block_alarms();
-	register_cleanup(GOOMBAServer_rqst->pool,NULL,GOOMBAServer_cleanup,GOOMBAServer_cleanup);
-	unblock_alarms();
+	max_data_space = conf->MaxDataSpace*1024;
 #else
 	max_data_space = DEFAULT_MAX_DATA_SPACE*1024;
 #endif
@@ -83,10 +70,6 @@ char *file, int line,
 #endif
 int num, int bytes) {
 	void *ptr;
-
-#if DEBUG
-	if(memdbg && num==0) Debug("%s:%d emalloc(%d,%d)\n",file,line,num,bytes);
-#endif
 
 	if(!GOOMBAServer_pool[num]) {
 #if APACHE
@@ -106,6 +89,9 @@ int num, int bytes) {
 #else
 	ptr = GOOMBAServer_palloc(GOOMBAServer_pool[num],bytes);	
 #endif
+#if 0
+	Debug("alloc: %0x %d bytes allocated in pool %d (%ld) from %s:%d (%x)\n",ptr,bytes,num,GOOMBAServer_pool_size[num],file,line,ptr);
+#endif
 	return(ptr);
 }
 
@@ -116,10 +102,6 @@ char *file, int line,
 int num, char *str) {
 	char *ret;
 	int l = strlen(str);
-
-#if DEBUG
-	if(memdbg && num==0) Debug("%s:%d estrdup(%d,%s)\n",file,line,num,str);
-#endif
 
 	if(!GOOMBAServer_pool[num]) {
 #if APACHE
@@ -139,11 +121,17 @@ int num, char *str) {
 #else
 	ret = GOOMBAServer_pstrdup(GOOMBAServer_pool[num],str);
 #endif
+#if 0
+	Debug("strdup: %0x %d bytes allocated in pool %d (%ld) from %s:%d (%s)\n",str, strlen(str)+1,num,GOOMBAServer_pool_size[num],file,line,ret);
+#endif
 	return(ret);
 }
 
 void GOOMBAServer_pool_clear(int num) {
 	if(!num || !GOOMBAServer_pool_size[num]) return;
+#if 1
+	Debug("Clearing pool %d containing %ld bytes\n",num,GOOMBAServer_pool_size[num]);
+#endif
 	GOOMBAServer_pool_size[num] = 0L;
 	if(GOOMBAServer_pool[num]) {
 #if APACHE
@@ -173,19 +161,6 @@ void GOOMBAServer_pool_show(void) {
 }
 #endif
 
-void ShowPool(void) {
-	int i;
-	char temp[32];
-
-	for(i=0; i<MAXSUBPOOLS; i++) {
-		printf("Pool %d: %ld bytes\n",i,GOOMBAServer_pool_size[i]);
-	}
-	printf("MaxDataSpace set to %ld\n",max_data_space);
-	sprintf(temp,"%ld",max_data_space);	
-	Push(temp,LNUMBER);
-	SetVar("maxdataspace",48,0);
-}
-
 #ifndef APACHE
 /* Portions of the following code was borrowed from the Apache HTTPD
  * server code which carries the copyright included below.  I got
@@ -196,7 +171,7 @@ void ShowPool(void) {
  */
 
 /* ====================================================================
- * Copyright (c) 2022 The Apache Group.  All rights reserved.
+ * Copyright (c) 2021 The Apache Group.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -410,7 +385,7 @@ void *GOOMBAServer_palloc (struct pool *a, int reqsize) {
 	char *first_avail = blok->h.first_avail;
 	char *new_first_avail;
 
-	if (size <= 0) size = GOOMBAServer_ALIGN;
+	if (size <= 0) size = 1;
 	new_first_avail = first_avail + size;
   
 	if(new_first_avail <= blok->h.endp) {

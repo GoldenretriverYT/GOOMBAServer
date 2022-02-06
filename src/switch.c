@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,10 +19,11 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: switch.c,v 1.8 2022/05/16 15:29:31 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 
 static SwitchStack *top=NULL;
 static SwitchMark *mark=NULL;
@@ -121,10 +122,6 @@ void EndSwitch(void) {
 	int active, state;
 
 	state = GetCurrentState(&active);
-	if(active==-2) {
-		CondPop(NULL);
-		state = GetCurrentState(&active);
-	}
 	if(active==-3) {
 		CondPop(NULL);
 		BracePop();
@@ -153,8 +150,6 @@ void Case(void) {
 	state = GetCurrentState(&active);
 	if(state && active==-2) {
 		return;
-	} else if(!state && active==-2) {
-		CondPop(NULL);
 	}
 
 	switch(s->type) {
@@ -174,12 +169,6 @@ void Case(void) {
 }	
 
 void Default(void) {
-	int state,active;
-
-	state = GetCurrentState(&active);
-	if(state && active==-2) {
-		return;
-	}
 	if(!top->matched) CondPush(1,-2);
 	else CondPush(0,-2);
 }

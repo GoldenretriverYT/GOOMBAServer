@@ -1,8 +1,8 @@
-/***[microtime.c]*************************************************[TAB=4]****\
+/***[head.c]******************************************************[TAB=4]****\
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -22,31 +22,25 @@
 /*
  * Contributed by Paul Panotzki - Bunyip Information Systems
  */
- microtime.c,v 1.11 2022/09/13 15:57:19 shane Exp $ */
-#include "GOOMBAServer.h"
+/* $Id: microtime.c,v 1.5 2022/05/17 18:57:43 rasmus Exp $ */
+#include <GOOMBAServer.h>
 #include <stdlib.h>
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
 #include <string.h>
 #include <errno.h>
-#include "parse.h"
+#include <parse.h>
 
 #include <stdio.h>
-#ifdef HAVE_GETTIMEOFDAY
-#if WINNT|WIN32
-#include "win32/time.h"
-#else
 #include <sys/time.h>
-#endif
-#endif
 
 #define NUL  '\0'
 #define MICRO_IN_SEC 1000000.00
 
 void MicroTime(void) {
-#ifdef HAVE_GETTIMEOFDAY
+#if HAVE_GETTIMEOFDAY
 	struct timeval tp;
 	long sec=0L;
 	double msec = 0.0;

@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,48 +19,7 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-
-/* MS Visual C++ V5 defines WIN32.  Use this to define WINDOWS
- * for any pre-existing modifications for windows.
- * I have used code from the apacheNT port, and from the Downhill
- * Project.
- *
- * Compilation of the win32 version has only been tested with VC5
- * and with the configuration as is in configure.h.w32 and GOOMBAServer.h
- * 
- */
-#if WINNT|WIN32
-#define WINDOWS 1
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <io.h>
-#include <malloc.h>
-#include <direct.h>
-#include <stdlib.h>
-typedef int uid_t;
-typedef int gid_t;
-typedef int pid_t;
-typedef int mode_t;
-typedef char * caddr_t;
-#define strcasecmp(s1, s2) stricmp(s1, s2)
-#define strncasecmp(s1, s2, n) strnicmp(s1, s2, n)
-#define lstat(x, y) stat(x, y)
-#define		_IFIFO	0010000	/* fifo */
-#define		_IFBLK	0060000	/* block special */
-#define		_IFLNK	0120000	/* symbolic link */
-#define S_IFIFO		_IFIFO
-#define S_IFBLK		_IFBLK
-#define	S_IFLNK		_IFLNK
-#define pclose		_pclose
-#define popen		_popen
-#define chdir		_chdir
-#define mkdir(a,b)	_mkdir(a)
-#define rmdir		_rmdir
-#define sleep		_sleep
-#define getcwd		_getcwd
-#endif
-
-
+/* $Id: GOOMBAServer.h,v 1.73 2022/06/01 02:21:43 rasmus Exp $ */
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
@@ -72,30 +31,12 @@ typedef char * caddr_t;
 #if HAVE_MEMORY_H
 #include <memory.h>
 #endif
-#if HAVE_REGCOMP
-#include <regex.h>
-#else
-#include "regex.h"
-#endif
-#if GOOMBAServerFASTCGI
-#include "fcgi_stdio.h"
-#endif
 #if APACHE
-#if WINNT|WIN32
-/* apacheNT wants to define these, so lets let it */
-#if HAVE_MMAP
-#undef HAVE_MMAP
-#endif
-#ifdef sleep
-#undef sleep
-#endif
-#endif
 #include "httpd.h"
 #include "mod_GOOMBAServer.h"
 
 extern request_rec *GOOMBAServer_rqst;
 #endif
-
 
 /* 
  * This should be set to the same as the UserDir httpd setting from
@@ -103,25 +44,6 @@ extern request_rec *GOOMBAServer_rqst;
  */
 #define GOOMBAServer_PUB_DIRNAME	"public_html"
 
-/*
- * You can override this setting with the GOOMBAServer_USERDIR env. var if you
- * change your config.
- *
- */
-#define GOOMBAServer_PUB_DIRNAME_ENV	"GOOMBAServer_USERDIR"
-
-/* 
- * Only define the following if you wish the ROOT_DIR for GOOMBAServer loaded
- * scripts to be different from the server's default ROOT_DIR.  
- * Only really useful in non server-wide setups to help shorten the
- * URL's from something like:
- *
- *   http://www.io.org/~rasmus/GOOMBAServer.cgi/~rasmus/file.html
- *
- * to:
- *
- *   http://www.io.org/~rasmus/GOOMBAServer.cgi/file.html
- */ 
 /* #define GOOMBAServer_ROOT_DIR "/home/rasmus/public_html" */
 
 /*
@@ -129,11 +51,7 @@ extern request_rec *GOOMBAServer_rqst;
  * points to a valid path and that GOOMBAServer is allowed to create/write to
  * this file.
  */
-#ifdef WINDOWS
-#define DEBUG_FILE	"/windows/GOOMBAServer.err"
-#else
 #define DEBUG_FILE	"/tmp/GOOMBAServer.err"
-#endif
 
 /*
  * If you are using a virtual domain on a braindead http server which
@@ -149,8 +67,7 @@ extern request_rec *GOOMBAServer_rqst;
  * will be automatically escaped if it is found in a posted form variable.
  * This is useful when mSQL or Postgres95 support is enabled since the 
  * single quote has to be escaped when it is part of an mSQL  or Postgres95
- * query.  In the case of Postgres95, the double quote character will also
- * be escaped.
+ * query.  
  */
 #define MAGIC_QUOTES 1
 
@@ -176,102 +93,44 @@ extern request_rec *GOOMBAServer_rqst;
 /*
  * SETLOCALE Support can be enabled by setting this to 1.  You will probably
  * want to do this if you are designing non-English pages.  When SETLOCALE is
- * enabled, GOOMBAServer will check your environment variables for the correct
+ * enabled, GOOMBAServer    will check your environment variables for the correct
  * locale settings.  See your system man page for setlocale() for more details.
  */
 /* #define SETLOCALE 1 */
 
 /*
- * SQLLOGDB should be set to the database name you wish to use to store
- * log data if you are using GOOMBAServer with mSQL-based logging.  Remember
- * to create this database before trying to run GOOMBAServer in mSQL logging mode.
+ * MSQLLOGDB should be set to the database name you wish to use to store
+ * log data if you are using GOOMBAServer    with mSQL-based logging.  Remember
+ * to create this database before trying to run GOOMBAServer    in mSQL logging mode.
  *
- * NOTE: For Apache module, set this via GOOMBAServerSQLLogDB configuration directive
+ * NOTE: For Apache module, set this via GOOMBAServerMsqlLogDB configuration directive
  */
-#define SQLLOGDB "GOOMBAServerfi"
+#define MSQLLOGDB "GOOMBAServerfi"
 
 /*
- * SQLLOGHOST should be set to the database host you wish to use to store
- * log data if you are using GOOMBAServer with SQL-based logging.  
- *
- * NOTE: For Apache module, set this via GOOMBAServerSQLLogHost configuration directive
- */
-#define SQLLOGHOST "localhost"
-
-/*
- * SQLLOGTMP is set to the directory where you want temporary lock
- * files created when SQL LOGGING is used.  Since mSQL 1 does not support
+ * MSQLLOGTMP is set to the directory where you want temporary lock
+ * files created when MSQL LOGGING is used.  Since mSQL does not support
  * atomic updates of counters, an external lock file unfortunately needs
- * to be used.  Atomic counter updates are used when the SQL engine supports
- * them.
+ * to be used.  With mSQL-2, these lock files can be eliminated, but at
+ * the time of this writing, mSQL-2 is not available as of yet.
  */
-#define SQLLOGTMP "/tmp"
+#define MSQLLOGTMP "/tmp"
 
 /*
- * NOLOGSUCCESSIVE should be set to 1 if you want multiple successive hits
- * from the same remote host to be ignored (e.g. someone repeatedly 
- * reloading the same page).  If undefined or set to 0, successive hits 
- * from the same remote host will be logged (and counted on the page counter).
- * The default is set to 0.
- */
-#define NOLOGSUCCESSIVE 0
-
-/*
- * INCLUDEPATH is a colon-separated list of directories where GOOMBAServer will
- * look for files in when running include().  The default is to look
- * only in the current directory.
- */
-#define INCLUDEPATH "."
-
-/*
- * PATTERN_RESTRICT can be enabled for security reasons to restrict GOOMBAServer
+ * PATTERN_RESTRICT can be enabled for security reasons to restrict GOOMBAServer/fi
  * to only load files with certain patterns in their filenames.  If unset,
- * GOOMBAServer will by default be allowed to open all files regardless of the
+ * GOOMBAServer    will by default be allowed to open all files regardless of the
  * presence of any .htaccess or other external security mechanisms
  * NOTE: the pattern must be a valid regular expression.  The example,
- * ".*\\.phtml$" causes GOOMBAServer to only be allowed to load files ending with
+ * ".*\\.phtml$" causes GOOMBAServer    to only be allowed to load files ending with
  * the .phtml extension.
  */
 /* #define PATTERN_RESTRICT ".*\\.phtml$" */
 
 /*
- * GOOMBAServer_SAFE_MODE should be set if you are running GOOMBAServer on a shared server
- * and you want to restrict users from being able to access each others
- * files and do other nasty things related to the fact that everyones'
- * scripts all run as the same user id.  See the documentation for a
- * full description of GOOMBAServer's Safe Mode.
- *
- * The EXEC_DIR is the directory where Exec(), System(), PassThru() and 
- * Popen() calls are allowed to execute binaries from in SAFE MODE.
- */
-/*
-#define GOOMBAServer_SAFE_MODE 1
-#define GOOMBAServer_SAFE_MODE_EXEC_DIR "/usr/local/bin"
-*/
-
-/*
- * Set GOOMBAServer_LOOPLIMIT to ensure that your programs don't go into an
- * infinite loop.  Unfortunately, if your GOOMBAServer script goes into a loop
- * the apache server will simply hang there gobbling up CPU time, until
- * the machine reboots or someone kills the process.
- * If GOOMBAServer_LOOPLIMIT is defined, only GOOMBAServer_LOOPLIMIT while statements can
- * evaluate true.  After that number is reached, each while generates an
- * error message and behaves as though the expression was false.
- * The figure 100000 was chosen because it took about 15 CPU seconds to run
- * on a Pentium 166 with an empty loop, and this is already too long for
- * most production web environments.
- */
-#define GOOMBAServer_LOOPLIMIT 100000
-
-/*
  * Max size of a single line of input in the HTML files
  */
 #define LINEBUFSIZE	4096
-
-/*
- * Input buffer size for Exec() commands
- */
-#define EXEC_INPUT_BUF 4096
 
 /*
  * ECHO_BUF sets the size of the echo overflow buffer
@@ -283,102 +142,24 @@ extern request_rec *GOOMBAServer_rqst;
  * DEFAULT_MAX_DATA_SPACE
  *
  * Set this to the maximum size a memory sub-pool is allowed to grow
- * to.  (number of kilo bytes)  
- * In the Apache module version, this can be overwritten by the
- * GOOMBAServerMaxDataSpace Apache configuration directive.
+ * to.  (number of kilo bytes)
  */
 #define DEFAULT_MAX_DATA_SPACE 8192
 
-/*
- * GOOMBAServer_TRACK_VARS
- *
- * If you define this, 3 arrays will be created in your scripts.  They are:
- * 
- *  $GOOMBAServer_GETVARS
- *  $GOOMBAServer_POSTVARS
- *  $GOOMBAServer_COOKIEVARS
- *
- * These arrays will contain the GET/POST/Cookie variables respectively.
- */
-/* #define GOOMBAServer_TRACK_VARS 1 */
-
-/*
- * GOOMBAServer_AUTH_VARS
- *
- * If this is defined, the the Apache module version will be allowed to
- * set the GOOMBAServer_AUTH_USER, GOOMBAServer_AUTH_PW and GOOMBAServer_AUTH_TYPE variables.  
- * This is a potential security concern.  See the HTTP Authentication
- * section in the documentation for more details.
- */
-#define GOOMBAServer_AUTH_VARS 1
-
-/*
- * SNMP Support
- *
- * The SNMP support in GOOMBAServer is very rough.  It was written for ucd-snmp-3.1.3
- * available from ftp.ece.ucdavis.edu:/pub/snmp/ucd-snmp.tar.gz or from
- * sunsite.cnlab-switch.ch:/mirror/ucd-snmp/ucd-snmp.tar.gz
- *
- * To enable it, set the following #define to 1 and edit your Makefile's
- * LIBS line adding something like, "-lsnmp" assuming you have put
- * libsnmp.a somewhere on your linker path
- *
- * (Please do not send me SNMP related questions.  I know just enough
- *  about SNMP to hack support into GOOMBAServer for it, but nothing more.)
- */
-/* #define GOOMBAServer_SNMP_SUPPORT 1 */
-
-/*
- * GOOMBAServer_PG_LOWER
- *
- * Define the GOOMBAServer_PG_LOWER variable if you want to force GOOMBAServer to lower-case
- * Postgres field names.
- *
- */
-/* #define GOOMBAServer_PG_LOWER 1 */
-
-/*
- * GOOMBAServer_MYSQL_GETLOGIN
- *
- * If you want the default mysql user to be fetched via the getlogin()
- * call and then if that fails by cuserid(), then uncomment the following
- * line.  Otherwise the default mysql user will be set to the current user
- * that the process is running as.
- */
-/* #define GOOMBAServer_MYSQL_GETLOGIN 1 */
-
-/* 
- * GDBM_FIX
- *
- * Some people have reported problems getting gdbm to work correctly.  If
- * you are seeing a gdbm compatibility problem, try defining this and
- * let me know if it fixes your problem.  If it does, please tell me
- * which version of gdbm you are using
- */
-/* #define GDBM_FIX 1 */
-
-/*
- * Redefine GOOMBAServer's Error() function so that it doesn't conflict with mod_perl
- */
-#define Error GOOMBAServerError
-
 /*-- Do not touch anything after this point unless you are very brave --*/
 
-#define GOOMBAServer_VERSION "1.1"
+#define GOOMBAServer_VERSION "1.00"
 
 #define VAR_INIT_CHAR	'$'
 
 #if APACHE
 #if APACHE_NEWAPI
 #define PUTS(a) rputs((a),GOOMBAServer_rqst)
-#define PUTC(a) rputc((a),GOOMBAServer_rqst)
 #else
 #define PUTS(a) rprintf(GOOMBAServer_rqst,"%s",(a))
-#define PUTC(a) rprintf(GOOMBAServer_rqst,"%c",(a))
 #endif
 #else
 #define PUTS(a) fputs((a),stdout)
-#define PUTC(a) fputc((a),stdout)
 #endif
 
 #if HAVE_FLOCK
@@ -412,6 +193,8 @@ extern request_rec *GOOMBAServer_rqst;
 #endif
 #endif
 
+#define MAX_CMD_LEN 21
+
 #define YYSTYPE long
 
 #if GDBM
@@ -432,9 +215,9 @@ typedef struct {
 typedef struct VarTree {
 	short type;
 	int count;
-	char *name;
-	char *strval;
-	char *iname;
+	unsigned char *name;
+	unsigned char *strval;
+	unsigned char *iname;
 	long intval;
 	double douval;
 	int flag;
@@ -452,7 +235,7 @@ typedef struct VarTree {
 /* Expression Stack */
 typedef struct Stack {
 	short type;
-	char *strval;
+	unsigned char *strval;
 	long intval;
 	double douval;
 	VarTree *var;	
@@ -571,17 +354,10 @@ typedef struct FuncStack {
 	struct FuncStack *next;
 } FuncStack;
 
-typedef struct CounterStack {
-	int inif;
-	int inwhile;
-	struct CounterStack *next;
-} CounterStack;
-
 typedef struct FpStack {
 	FILE *fp;
 	char *filename;
 	int id;
-	int type;
 	struct FpStack *next;
 } FpStack;
 
@@ -598,16 +374,6 @@ typedef struct PtrStack {
 	void *ptr;
 	struct PtrStack *next;
 } PtrStack;
-
-typedef struct CookieList {
-	char *name;
-	char *value;
-	time_t expires;
-	char *path;
-	char *domain;
-	int secure;		
-	struct CookieList *next;
-} CookieList;
 
 #ifndef APACHE
 typedef struct pool {
@@ -641,44 +407,24 @@ void Include(void);
 void Exit(int);
 char *GetCurrentLexLine(int *, int *);
 void InitFunc(void);
-void DefineFunc(char *);
+void DefineFunc(unsigned char *);
 FuncStack *FindFunc(char *, long *, VarTree **);
-void RunFunc(char *);
+void RunFunc(unsigned char *);
 VarTree *GetFuncFrame(void);
-void AddToArgList(char *);
+void AddToArgList(unsigned char *);
 FuncArgList *GetFuncArgList(void);
 void ClearFuncArgList(void);
 void Return(void);
 void GOOMBAServer_init_lex(void);
-void IntFunc(char *);
-int NewWhileIteration(long);
+void IntFunc(unsigned char *);
+int NewWhileIteration(void);
 void Eval(void);
-void PushCounters(void);
-void PopCounters(void);
-void SetHeaderCalled(void);
-long GetSeekPos(void);
-void GOOMBAServerFlush(void);
-void PreParseFile(void);
-void PostParseFile(void);
+void set_text_magic(int);
 
 /* date.c */
 void Date(int, int);
 void UnixTime(void);
 void MkTime(int);
-char *std_date(time_t);
-void CheckDate(void);
-
-/* uniqid.c */
-void UniqId(void);
-
-/* soundex.c */
-void Soundex(void);
-
-/* syslog.c */
-void OpenLog(void);
-void CloseLog(void);
-void Syslog(void);
-void GOOMBAServer_init_syslog();
 
 /* parse.c */
 int yyparse(void);
@@ -688,13 +434,10 @@ void GOOMBAServer_init_yacc(void);
 int Calc(int);
 int CalcInc(int);
 void Neg(void);
-void BitNot(void);
 void BinDec(void);
 void DecBin(void);
 void DecHex(void);
-long _HexDec(char *);
 void HexDec(void);
-long _OctDec(char *);
 void OctDec(void);
 void DecOct(void);
 void Sin(void);
@@ -705,23 +448,18 @@ void Exp(void);
 void mathLog(void);
 void mathLog10(void);
 void Abs(void);
-void Pow(void);
-void shl(void);
-void shr(void);
-void Ceil(void);
-void Floor(void);
 
 /* stack.c */
-void Push(char *, int);
+void Push(unsigned char *, int);
 Stack *Pop(void);
 void ClearStack(void);
 void GOOMBAServer_init_stack(void);
 
 /* var.c */
 void GOOMBAServer_init_symbol_tree(void);
-void SetVar(char *, int, int);
-VarTree *GetVar(char *, char *, int);
-void IsSet(char *, int);
+void SetVar(unsigned char *, int, int);
+VarTree *GetVar(unsigned char *, unsigned char *, int);
+void IsSet(unsigned char *);
 char *SubVar(char *);
 void Count(void);
 void ArrayMax(void);
@@ -731,30 +469,25 @@ void GetEnv(void);
 void PtrPush(void *);
 void *PtrPop(void);
 void SecureVar(void);
-void Reset(char *);
-void Key(char *);
-void Next(char *);
-void Prev(char *);
-void End(char *);
+void Reset(unsigned char *);
+void Key(unsigned char *);
+void Next(unsigned char *);
+void Prev(unsigned char *);
+void End(unsigned char *);
 void PushStackFrame(void);
 void PopStackFrame(void);
 void Global(void);
-void copyarray(VarTree *, VarTree *, VarTree *, int);
+void copyarray(VarTree *, VarTree *);
 void deletearray(VarTree *);
-void UnSet(char *, int);
-void Pos(void);
-void GetAllHeaders(void);
+void UnSet(unsigned char *);
 
 /* echo.c */
-void Echo(char *, int);
+void Echo(unsigned char *, int);
 void StripSlashes(char *);
-void StripDollarSlashes(char *);
 char *AddSlashes(char *, int);
 void ParseEscapes(char *);
 void HtmlSpecialChars(void);
 int FormatCheck(char **, char **, char **);
-void _AddSlashes(void);
-void _StripSlashes(void);
 
 /* cond.c */
 int Compare(int);
@@ -797,7 +530,7 @@ char *Estrdup(char *, int, char *);
 /* db.c */
 void ListSupportedDBs(void);
 void dbmOpen(void);
-int _dbmOpen(char *, char *, int);
+int _dbmOpen(char *, char *);
 void dbmClose(void);
 int _dbmClose(char *);
 void dbmCloseAll(void);
@@ -820,12 +553,11 @@ void GOOMBAServer_init_db(void);
 /* while.c */
 void WhilePush(long, int, int);
 WhileStack *WhilePop(void);
-void While(long);
+void While(void);
 void EndWhile(void);
 void PushWhileMark(void);
 void PopWhileMark(void);
 void GOOMBAServer_init_while(void);
-void WhileFinish(void);
 
 /* string.c */
 void StrLen(void);
@@ -843,16 +575,11 @@ void SetType(void);
 void GetType(void);
 void SubStr(void);
 void UrlEncode(void);
-void UrlDecode(void);
-char *GOOMBAServer_urlencode(char *);
 void Ord(void);
 void QuoteMeta(void);
 void UcFirst(void);
-void Sprintf(int);
+void Sprintf(void);
 void Chr(void);
-void Chop(void);
-char *_StrTr(char *,char *,char *);
-void StrTr(void);
 
 /* msql.c */
 void Msql(void);
@@ -867,31 +594,12 @@ void MsqlRegCase(void);
 int  msqlGetDbSock(void);
 void msqlSetCurrent(int, char *);
 void MsqlListTables(void);
-void MsqlListFields(void);
 void MsqlTableName(void);
 void MsqlListDBs(void);
 void MsqlDBName(void);
 void MsqlDropDB(void);
 void MsqlCreateDB(void);
-void MsqlListIndex(void);
-void GOOMBAServer_init_msql(char *);
-
-/* sybsql.c */  /*muquit, # ma_muquit@fccc.edu, Sep-15-96 */
-void SybsqlConnect(void);
-void SybsqlDbuse(void);
-void SybsqlQuery(void);
-void SybsqlIsRow(void);
-void SybsqlNumRows(void);
-void SybsqlNextRow(void);
-void SybsqlPrintRows(void);
-void SybsqlResult(void);
-void SybsqlSeek(void);
-void SybsqlNumFields(void);
-void SybsqlFieldName(void);
-void SybsqlResultAll(void);
-void SybsqlGetField(void);
-void SybsqlExit(void);
-void SybsqlCheckConnect(void);
+void GOOMBAServer_init_msql(void);
 
 /* pg95.c */
 void PGcloseAll(void);
@@ -915,62 +623,31 @@ void PGfieldNum(void);
 void PGfieldPrtLen(void);
 void PGfieldSize(void);
 void PGgetlastoid(void);
-void PGerrorMessage(void);
 void GOOMBAServer_init_pg95(void);
 
 /* reg.c */
-void RegMatch(char *, int);
+void RegMatch(unsigned char *);
+void RegSearch(unsigned char *);
 void RegReplace(void);
 char *_RegReplace(char *, char *, char *);
-void EReg(char *, int);
-void ERegReplace(void);
-void ERegiReplace(void);
-char *_ERegReplace(char *, char *, char *, int);
-char *reg_eprint(int);
 
 /* exec.c */
-void Exec(char *, char *, int);
+void Exec(unsigned char *, unsigned char *, int);
 void EscapeShellCmd(void);
 
 /* file.c */
-/* Note: WIN32 Defines for OpenFile, Sleep and ReadFile
- * are required to avoid conflict with vc5 libraries
- */
-#ifdef WINDOWS
-int _OpenFile(char *, int, long *);
-#ifdef WIN32
-#define OpenFile _OpenFile
-#endif
-#else
 int OpenFile(char *, int, long *);
-#endif
 char *GetCurrentFilename(void);
 void SetCurrentFilename(char *);
 long GetCurrentFileSize(void);
 void SetCurrentFileSize(long);
-char *GetIncludePath(void);
-void SetIncludePath(char *);
-char *GetAutoPrependFile();
-char *GetAutoAppendFile();
-char *FixFilename(char *, int, int *, int);
+char *FixFilename(char *, int, int *);
 char *getfilename(char *, int);
-void ClearStatCache(void);
 void FileFunc(int);
 void TempNam(void);
-void Link(void);
-void SymLink(void);
-void ReadLink(void);
-void LinkInfo(void);
 void Unlink(void);
 void Rename(void);
-#ifdef WINDOWS
-void _Sleep(void);
-#ifdef WIN32
-#define Sleep _Sleep
-#endif
-#else
 void Sleep(void);
-#endif
 void USleep(void);
 void Fopen(void);
 void Fclose(void);
@@ -982,38 +659,17 @@ void Fseek(void);
 void Ftell(void);
 char *GetCurrentPI(void);
 void SetCurrentPI(char *);
-void SetCurrentPD(char *);
 void ChMod(void);
 void ChOwn(void);
 void ChGrp(void);
 void MkDir(void);
-void RmDir(void);
-int  FpPush(FILE *, char *, int);
-void GOOMBAServerFile(void);
-#if APACHE
-void GOOMBAServer_init_file(GOOMBAServer_module_conf *);
-#else
+int  FpPush(FILE *, char *);
+void File(void);
 void GOOMBAServer_init_file(void);
-#endif
 void set_path_dir(char *);
 void Popen(void);
 void Pclose(void);
 void Feof(void);
-void FpCloseAll(void);
-#if APACHE
-void Virtual(void);
-#endif
-#ifdef WIN32
-void _ReadFile(void);
-#define ReadFile _ReadFile
-#else
-void ReadFile(void);
-#endif
-void FileUmask(int);
-int CheckUid(char *, int);
-char *GetAutoPrependFile(void);
-char *GetAutoAppendFile(void);
-void FPassThru(void);
 
 /* crypt.c */
 void Crypt(int);
@@ -1022,11 +678,6 @@ void Crypt(int);
 void Header(void);
 void GOOMBAServer_header(int, char *);
 void GOOMBAServer_init_head(void);
-void SetCookie(int);
-void PushCookieList(char *, char *, time_t, char *, char *, int);
-CookieList *PopCookieList(void);
-void NoHeader(void);
-void GetAllHeaders(void);
 
 /* info.c */
 void Info(void);
@@ -1036,7 +687,6 @@ void GOOMBAServerVersion(void);
 /* post.c */
 void TreatData(int);
 void parse_url(char *);
-void TreatHeaders(void);
 
 /* type.c */
 int CheckType(char *);
@@ -1104,21 +754,18 @@ void GetLastAccess(void);
 void GetStartLogging(void);
 void GetLastRef(void);
 void GetLogFile(void);
-void LogAs(void);
 void GetLastMod(void);
 void GetTotal(void);
 void GetToday(void);
 void GetLogDir(void);
-void GetLogHost(void);
 char *getlogdir(void);
-char *getloghost(void);
 void GetMyUid(void);
 void GetMyInode(void);
 void SetStatInfo(struct stat *);
 void GetMyPid(void);
 long getmyuid(void);
-void SQLLog(char *);
-void sqlloadlastinfo(char *);
+void MsqlLog(char *);
+void msqlloadlastinfo(char *);
 #if APACHE
 void GOOMBAServer_init_log(GOOMBAServer_module_conf *);
 #else
@@ -1126,7 +773,7 @@ void GOOMBAServer_init_log(void);
 #endif
 
 /* sort.c */
-void Sort(int,int);
+void Sort(void);
 
 /* dir.c */
 void OpenDir(void);
@@ -1160,8 +807,6 @@ void ImagePolygon(int);
 void ImageChar(int);
 void ImageCopyResized(void);
 void GOOMBAServer_init_gd(void);
-void ImageSXFN(void);
-void ImageSYFN(void);
 
 /* mime.c */
 void mime_split(char *, int, char *);
@@ -1204,7 +849,6 @@ struct pool *GOOMBAServer_make_sub_pool(struct pool *);
 void GOOMBAServer_clear_pool(struct pool *);
 void GOOMBAServer_destroy_pool(struct pool *);
 #endif
-void ShowPool(void);
 
 /* local.c */
 #ifndef HAVE_STRCASECMP
@@ -1218,115 +862,3 @@ char *strdup(char *);
 char *strerror(int);
 #endif
 
-/* mysql.c */
-void GOOMBAServer_init_mysql(char *);
-void MYsql(void);
-void MYsqlResult(void);
-void MYsqlClose(void);
-void MYsqlConnect(int);
-void MYsqlFreeResult(void);
-void MYsqlNumRows(void);
-void MYsqlNumFields(void);
-void MYsqlField(int);
-void MYsqlListTables(void);
-void MYsqlListFields(void);
-void MYsqlTableName(void);
-void MYsqlListDBs(void);
-void MYsqlDBName(void);
-void MYsqlDropDB(void);
-void MYsqlCreateDB(void);
-void MYsqlInsertId(void);
-void MYsqlAffectedRows(void);
-void mysqlSetCurrent();
-
-/* adabasd.c */
-void Ada_exec(void);
-void Ada_close(void);
-void Ada_result(void);
-void Ada_resultAll(int);
-void Ada_numRows(void);
-void Ada_connect(void);
-void Ada_fieldNum(void);
-void Ada_fetchRow(int);
-void Ada_numFields(void);
-void Ada_Field(int);
-void Ada_freeResult(void);
-void Ada_closeAll(void);
-void GOOMBAServer_init_adabas(char *,char *,char *);
-
-/* solid.c */
-void Solid_exec(void);
-void Solid_close(void);
-void Solid_result(void);
-void Solid_numRows(void);
-void Solid_connect(void);
-void Solid_fieldNum(void);
-void Solid_fetchRow(void);
-void Solid_numFields(void);
-void Solid_fieldName(void);
-void Solid_freeResult(void);
-void Solid_closeAll(void);
-void GOOMBAServer_init_solid(void);
-
-/* mail.c */
-void Mail(int);
-
-/* md5.c */
-void Md5(void);
-
-/* image.c */
-void GetImageSize(void);
-
-#if GOOMBAServer_SNMP_SUPPORT
-/* snmp.c */
-void GOOMBAServersnmpget(void);
-void GOOMBAServersnmpwalk(void);
-void GOOMBAServersnmp(int);
-#endif
-
-/* oracle.c */
-void Ora_Close(void);
-void Ora_Commit(void);
-void Ora_CommitOff(void);
-void Ora_CommitOn(void);
-void Ora_Exec(void);
-void Ora_Fetch(void);
-void Ora_GetColumn(void);
-void Ora_Logoff(void);
-void Ora_Logon(void);
-void Ora_Open(void);
-void Ora_Parse(int);
-void Ora_Rollback(void);
-void Ora_Bind(void);
-void GOOMBAServer_init_oracle(void);
-void OraCloseAll(void);
-
-/* filepro.c */
-void filePro(void);
-void filePro_rowcount(void);
-void filePro_fieldcount(void);
-void filePro_fieldtype(void);
-void filePro_fieldname(void);
-void filePro_fieldwidth(void);
-void filePro_retrieve(void);
-
-/* illustra.c */
-void MIconnect(void);
-void MIdbname(void);
-void MIclose(void);
-void MIexec(void);
-void MIresult(void);
-void MInumRows(void);
-void MIfieldName(void);
-void MIfieldNum(void);
-void MInumFields(void);
-
-/* odbc.c */
-void ODBCfetch(void);
-void ODBCexecdirect(void);
-void ODBCgetdata(void);
-void ODBCfree(void);
-void ODBCconnect(void);
-void ODBCdisconnect(void);
-void ODBCrowcount(void);
-void GOOMBAServer_init_odbc(void);

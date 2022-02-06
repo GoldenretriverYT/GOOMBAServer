@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,23 +19,15 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* gd 1.2 is copyright 1994, 2022, Quest Protein Database Center, 
+/* $Id: gd.c,v 1.6 2022/05/16 15:29:21 rasmus Exp $ */
+/* gd 1.2 is copyright 1994, 2021, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
 
 /* Note that there is no code from the gd package in this file */
 
-#include "GOOMBAServer.h"
-#include "parse.h"
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#if APACHE
-#include "http_protocol.h"
-#endif
-#ifdef HAVE_LIBGD
+#include <GOOMBAServer.h>
+#include <parse.h>
+#if HAVE_LIBGD
 #include <gd.h>
 #include <gdfontt.h>  /* 1 Tiny font */
 #include <gdfonts.h>  /* 2 Small font */
@@ -111,7 +103,7 @@ void del_image(int count) {
 #endif
 
 void ImageCreate(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	int dx, dy, ind;
 	gdImagePtr im;
@@ -145,7 +137,7 @@ void ImageCreate(void) {
 }
 
 void ImageCreateFromGif(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	int ind;
 	gdImagePtr im;
@@ -189,7 +181,7 @@ void ImageCreateFromGif(void) {
 }
 
 void ImageDestroy(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	int ind;
 
@@ -207,7 +199,7 @@ void ImageDestroy(void) {
 }
 
 void ImageColorAllocate(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	int ind;
 	int col;
@@ -246,7 +238,6 @@ void ImageColorAllocate(void) {
 	im = get_image(ind);	
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 	col = gdImageColorAllocate(im, r, g, b);
@@ -263,7 +254,7 @@ void ImageColorAllocate(void) {
 }
 
 void ImageGif(int args) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	char *fn=NULL;
@@ -279,7 +270,6 @@ void ImageGif(int args) {
 			fn = (char *) estrdup(1,s->strval);
 		} else {
 			Error("Invalid filename in imagegif");
-			Push("-1", LNUMBER);
 			return;
 		}
 	}
@@ -292,83 +282,29 @@ void ImageGif(int args) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 	if(args==2) {
 		fp = fopen(fn,"w");
 		if(!fp) {
 			Error("Unable to open %s to create gif file",fn);
-			Push("-1", LNUMBER);
 			return;
 		}
 		gdImageGif(im,fp);
 		fflush(fp);
 		fclose(fp);
 	} else {
-		int		fds [2], i, b;
-		int	pid, status;
-		FILE	*pi, *po;
-		char	buf [4096];
-
-
-		GOOMBAServer_header(0, NULL);
-
-		if(pipe(fds) < 0) {
-			Error("Unable to create pipe");
-			Push("-1", LNUMBER);
-			return;
-		}
-
-		if((pi = fdopen(fds [0], "r")) == NULL) {
-			Error("Unable to fdopen readable end of pipe");
-			Push("-1", LNUMBER);
-			return;
-		}
+		gdImageGif(im,stdout);
 		fflush(stdout);
-		if((po = fdopen(fds [1], "w")) == NULL) {
-			Error("Unable to fdopen writeable end of pipe");
-			Push("-1", LNUMBER);
-			return;
-		}
-
-		switch(fork()) {
-		case -1:
-			Error("Unable to fork");
-			Push("-1", LNUMBER);
-			return;
-			break;
-
-		case 0:
-			fclose(pi);
-			gdImageGif(im, po);
-			fflush(po);
-			fclose(po);
-			exit(0);
-			break;
-
-		default:
-			fclose(po);
-			while((b = fread(buf, 1, sizeof(buf), pi)) > 0) {
-				for(i = 0; i < b; i++)
-					PUTC(buf [i]);
-			}
-			fclose(pi);
-			while((pid = wait(&status)) > 0)
-				;
-			break;
-
-		}
 	}
 #else
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }
 
 void ImageSetPixel(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, y, x;
@@ -402,24 +338,21 @@ void ImageSetPixel(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageSetPixel(im,x,y,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageLine(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, y2, x2, y1, x1;
@@ -467,12 +400,10 @@ void ImageLine(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageLine(im,x1,y1,x2,y2,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -481,12 +412,11 @@ void ImageLine(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageRectangle(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, y2, x2, y1, x1;
@@ -534,12 +464,10 @@ void ImageRectangle(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageRectangle(im,x1,y1,x2,y2,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -548,12 +476,11 @@ void ImageRectangle(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageFilledRectangle(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, y2, x2, y1, x1;
@@ -601,12 +528,10 @@ void ImageFilledRectangle(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageFilledRectangle(im,x1,y1,x2,y2,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -615,12 +540,11 @@ void ImageFilledRectangle(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageArc(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, e, st, h, w, cy, cx;
@@ -682,12 +606,10 @@ void ImageArc(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageArc(im,cx,cy,w,h,st,e,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -698,12 +620,11 @@ void ImageArc(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageFillToBorder(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, border, y, x;
@@ -744,12 +665,10 @@ void ImageFillToBorder(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageFillToBorder(im,x,y,border,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -757,12 +676,11 @@ void ImageFillToBorder(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageFill(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col, y, x;
@@ -796,24 +714,21 @@ void ImageFill(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageFill(im,x,y,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageColorTransparent(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int col;
@@ -833,22 +748,19 @@ void ImageColorTransparent(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageColorTransparent(im,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageInterlace(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int interlace;
@@ -868,24 +780,21 @@ void ImageInterlace(void) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageInterlace(im,interlace);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 /* arg = 0  normal polygon
    arg = 1  filled polygon */
 void ImagePolygon(int arg) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	gdPoint points[PolyMaxPoints];	
@@ -914,19 +823,14 @@ void ImagePolygon(int arg) {
 	var = s->var;
 	if(!var) {
 		Error("You must pass an array to the imagepolygon function");
-		Push("-1", LNUMBER);
 		return;
 	}
 	if(var->count < 6) {
 		Error("You must have at least 3 points in your array");
-		Pop();
-		Push("-1", LNUMBER);
 		return;
 	}
 	if(var->count < ptotal*2) {
 		Error("Trying to use %d points in array with only %d points",ptotal,var->count/2);
-		Pop();
-		Push("-1", LNUMBER);
 		return;
 	}
 
@@ -938,7 +842,6 @@ void ImagePolygon(int arg) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 	for(i=0;i<ptotal;i++) {
@@ -951,12 +854,10 @@ void ImagePolygon(int arg) {
 	}
 	if(arg==0) gdImagePolygon(im,points,ptotal,col);
 	else if(arg==1) gdImageFilledPolygon(im,points,ptotal,col);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
@@ -967,7 +868,7 @@ void ImagePolygon(int arg) {
  * arg = 3  ImageStringUp
  */
 void ImageChar(int arg) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im;
 	int ch=0, col, x, y, size;
@@ -1028,7 +929,6 @@ void ImageChar(int arg) {
 	im = get_image(s->intval);
 	if(!im) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 	
@@ -1118,7 +1018,6 @@ void ImageChar(int arg) {
 		else gdImageChar(im,gdFontGiant,x,y,ch,col);
 		break;
 	}
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -1127,12 +1026,11 @@ void ImageChar(int arg) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
 
 void ImageCopyResized(void) {
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	Stack *s;
 	gdImagePtr im_dst;
 	gdImagePtr im_src;
@@ -1202,7 +1100,6 @@ void ImageCopyResized(void) {
 	im_src = get_image(s->intval);
 	if(!im_src) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
@@ -1214,13 +1111,11 @@ void ImageCopyResized(void) {
 	im_dst = get_image(s->intval);
 	if(!im_dst) {
 		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
 		return;
 	}
 
 	gdImageCopyResized(im_dst,im_src,dstX,dstY,srcX,srcY,
 	  dstW,dstH,srcW,srcH);
-	Push("0", LNUMBER);
 #else
 	Pop();
 	Pop();
@@ -1233,67 +1128,5 @@ void ImageCopyResized(void) {
 	Pop();
 	Pop();
 	Error("No GD support available");
-	Push("-1", LNUMBER);
 #endif
 }	
-
-void ImageSXFN(void) {
-#ifdef HAVE_LIBGD
-	Stack *s;
-	int ind;
-	gdImagePtr im;
-	char temp[8];
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in imagesxfn");
-		return;
-	}
-	ind = s->intval;
-
-	im = get_image(ind);	
-	if (!im) {
-		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
-		return;
-	}
-
-	sprintf(temp,"%d",gdImageSX(im));
-	Push(temp,LNUMBER);
-#else
-	Pop();
-	Error("No GD support available");
-	Push("-1",LNUMBER);
-#endif
-}
-
-void ImageSYFN(void) {
-#ifdef HAVE_LIBGD
-	Stack *s;
-	int ind;
-	gdImagePtr im;
-	char temp[8];
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in imagesyfn");
-		return;
-	}
-	ind = s->intval;
-
-	im = get_image(ind);	
-	if (!im) {
-		Error("Unable to find image pointer");
-		Push("-1", LNUMBER);
-		return;
-	}
-
-	sprintf(temp,"%d",gdImageSY(im));
-	Push(temp,LNUMBER);
-#else
-	Pop();
-	Error("No GD support available");
-	Push("-1",LNUMBER);
-#endif
-}
-

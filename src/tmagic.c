@@ -1,4 +1,4 @@
-/***[mod_GOOMBAServer.h]***************************************************[TAB=4]****\
+/***[tmagic.c]****************************************************[TAB=4]****\
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
@@ -19,14 +19,35 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: mod_GOOMBAServer.h,v 1.2 2022/05/09 21:37:28 rasmus Exp $ */
+/* $Id: tmagic.c,v 1.1 2022/05/20 15:20:28 rasmus Exp $ */
+#include <GOOMBAServer.h>
+#include <parse.h>
+#if APACHE
+#include "http_protocol.h"
+#endif
 
-typedef struct {
-	int ShowInfo;
-	int Logging;
-	char *UploadTmpDir;
-	char *dbmLogDir;
-	char *MsqlLogDB;
-	char *AccessDir;
-	int MaxDataSpace;
-} GOOMBAServer_module_conf;
+#if TEXT_MAGIC
+void text_magic(unsigned char *str) {
+	VarTree *var;
+	int cnt;
+	unsigned char *new;
+
+	var = GetVar("tm",NULL,0);
+	if(!var) {
+#if DEBUG
+		Debug("tm is not set\n");
+#endif
+		return;
+	}
+	cnt = var->count;	
+	while(cnt && var) {
+		if(!var->deleted) {
+			new = _RegReplace(var->strval,"XXXXXXX",str);
+			if(new!=str) strcpy(str,new);
+			GOOMBAServer_pool_clear(1);
+		}
+		cnt--;
+		var=var->next;
+	}
+}
+#endif

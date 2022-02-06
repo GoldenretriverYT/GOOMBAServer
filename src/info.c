@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,51 +19,35 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
- info.c,v 1.39 2022/11/12 23:24:52 lr Exp $ */
-#include "GOOMBAServer.h"
-#include "parse.h"
+/* $Id: info.c,v 1.17 2022/05/13 20:30:18 rasmus Exp $ */
+#include <GOOMBAServer.h>
+#include <parse.h>
 #include <stdlib.h>
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_PWD_H
 #include <pwd.h>
-#endif
-#ifdef HAVE_GRP_H
 #include <grp.h>
-#endif
 #include <time.h>
 #if APACHE
 #include "http_protocol.h"
 #endif
 
-extern char **environ;
-
 void Info(void) {
 	struct stat sb;
 	char *path;
-#if HAVE_PWD_H
 	struct passwd *pw;
-#endif
-#if HAVE_GRP_H
 	struct group *gr;
-#endif
 	char buf[512];
-	char **envp;
 #if APACHE
 	array_header *env_arr;
 	table_entry *env;
 	int i;
-	VarTree *var;
 #endif	
-#ifndef WINNT
-#ifndef WIN32
 	FILE *fp;
-#endif
-#endif
 
 	GOOMBAServer_header(0,NULL);
-	sprintf(buf,"<html><head><title>GOOMBAServer</title></head><body><h1>GOOMBAServer Version %s</h1>by GoombaProgrammer<p>The GOOMBAServer Web Site is at <a href=\"http://goombaserver.org/</a><p>\n",GOOMBAServer_VERSION);
+	sprintf(buf,"<html><head><title>GOOMBAServer</title></head><body><h1>GOOMBAServer    Version %s</h1>by GoombaProgrammer & Computa.me<p>The GOOMBAServer    Web Site is at <a href=\"http://www.computa.me/GOOMBAServer\">http://www.computa.me/GOOMBAServer</a><p>\n",GOOMBAServer_VERSION);
 	PUTS(buf);
 	PUTS("This program is free software; you can redistribute it and/or modify\n");
 	PUTS("it under the terms of the GNU General Public License as published by\n");
@@ -76,13 +60,7 @@ void Info(void) {
 	PUTS("You should have received a copy of the GNU General Public License\n");
 	PUTS("along with this program; if not, write to the Free Software\n");
 	PUTS("Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.<p>\n");
-#ifdef WINDOWS
-#ifdef WIN32
-	PUTS("<hr><b><i>Windows95/NT Version compiled with MS VC++ V5</i></b>\n");
-#else
-	PUTS("<hr><b><i>Windows95/NT Version compiled with cygnus-2.7.2-970404</i></b>\n");
-#endif
-#else
+
 	PUTS("<hr><b><i>Unix version:</i></b> ");
 	fp = popen("uname -a","r");
 	if(fp) {
@@ -91,28 +69,26 @@ void Info(void) {
 		}
 		pclose(fp);
 	}
-#endif
 	
 	PUTS("<hr><b><i>Environment:</i></b><pre>");
-	envp = environ;
-	while (*envp) {
-	    PUTS(*envp++);
-	    PUTS("\n");
+	fp = popen("env","r");
+	if(fp) {
+		while(fgets(buf,255,fp)) {
+			PUTS(buf);	
+		}
+		pclose(fp);
 	}
 #ifndef APACHE
 	{
 		char *sn, *pi;
 		sn = getenv("SCRIPT_NAME"); pi = getenv("PATH_INFO");
-		if(!strcmp(sn,pi)) {
-			pi = NULL;
-		}
 		sprintf(buf,"GOOMBAServer_SELF=%s%s\n",sn?sn:"",pi?pi:"");
 		PUTS(buf);	
 	}
 #endif
 	PUTS("</pre>\n");
 #if APACHE
-	PUTS("<hr><b><i>Apache defined variables available to GOOMBAServer:</i></b><p>\n");
+	PUTS("<hr><b><i>Apache defined variables available to GOOMBAServer/FI:</i></b><p>\n");
 	env_arr = table_elts(GOOMBAServer_rqst->subprocess_env);
 	env = (table_entry *)env_arr->elts;
 	for(i = 0; i < env_arr->nelts; ++i) {
@@ -130,23 +106,6 @@ void Info(void) {
 	PUTS(buf);
 	sprintf(buf,"GOOMBAServer_SELF = %s<br>\n",GOOMBAServer_rqst->uri);  /* Faked by GetVar */
 	PUTS(buf);
-#if APACHE
-	var = GetVar("GOOMBAServer_AUTH_USER",0,0);
-	if(var) {
-		sprintf(buf,"GOOMBAServer_AUTH_USER = %s<br>\n",var->strval);
-		PUTS(buf);
-	}
-	var = GetVar("GOOMBAServer_AUTH_PW",0,0);
-	if(var) {
-		sprintf(buf,"GOOMBAServer_AUTH_PW = %s<br>\n",var->strval);
-		PUTS(buf);
-	}
-	var = GetVar("GOOMBAServer_AUTH_TYPE",0,0);
-	if(var) {
-		sprintf(buf,"GOOMBAServer_AUTH_TYPE = %s<br>\n",var->strval);
-		PUTS(buf);
-	}
-#endif
 	PUTS("<hr><b><i>Request HTTP Headers:</i></b><p>\n");
 	env_arr = table_elts(GOOMBAServer_rqst->headers_in);
 	env = (table_entry *)env_arr->elts;
@@ -208,7 +167,6 @@ void Info(void) {
 			PUTS(buf);
 			sprintf(buf,"<b>Number of Links:</b> <i>%ld</i><br>\n",(long)sb.st_nlink);
 			PUTS(buf);
-#ifdef HAVE_PWD_H
 #if APACHE
 			pw = getpwuid(GOOMBAServer_rqst->finfo.st_uid);
 #else
@@ -219,9 +177,6 @@ void Info(void) {
 				sprintf(buf,"<b>Owner:</b> <i>%s</i> <b>From Group:</b> <i>%s</i><br>\n",pw->pw_name,gr->gr_name);
 				PUTS(buf);
 			}
-#endif
-
-#ifdef HAVE_GRP_H
 #if APACHE
 			gr = getgrgid(GOOMBAServer_rqst->finfo.st_gid);
 #else
@@ -231,7 +186,6 @@ void Info(void) {
 				sprintf(buf,"<b>Group:</b> <i>%s</i><br>\n",gr->gr_name);
 				PUTS(buf);
 			}
-#endif
 			sprintf(buf,"<b>Size:</b> <i>%ld</i><br>\n",
 #if APACHE
 				(long)GOOMBAServer_rqst->finfo.st_size);
@@ -264,17 +218,11 @@ void Info(void) {
 		}
 #endif
 	}
-	PUTS("<hr>\n");
 	path = getcwd(NULL,1024);
 	if(path) {
-		sprintf(buf,"<b>Working Directory:</b> <i>%s</i><br>\n",path);
+		sprintf(buf,"<hr><b>Working Directory:</b> <i>%s</i><br>\n",path);
 		PUTS(buf);
 		free(path);
-	}
-	path = GetIncludePath();
-	if (path) {
-		sprintf(buf,"<b>Include Path:</b> <i>%s</i><br>\n",path);
-		PUTS(buf);
 	}
 #if ACCESS_CONTROL
 	sprintf(buf,"<b>Access Control enabled using:</b> <i>%s</i><br>\n",getaccdir());
@@ -285,41 +233,19 @@ void Info(void) {
 	PUTS(buf);
 #endif
 #if MSQLLOGGING
-	sprintf(buf,"<b>Access Logging enabled using mSQL in db:</b> <i>%s</i> <b>host:</b><i>%s</i><br>\n",getlogdir(),getloghost());
+	sprintf(buf,"<b>Access Logging enabled using mSQL in db:</b> <i>%s</i><br>\n",getlogdir());
 	PUTS(buf);
 #endif
-#if MYSQLLOGGING
-	sprintf(buf,"<b>Access Logging enabled using mySQL in db:</b> <i>%s</i> <b>host:</b><i>%s</i><br>\n",getlogdir(),getloghost());
-	PUTS(buf);
-#endif
-#ifdef HAVE_LIBMSQL
+#if HAVE_LIBMSQL
 	PUTS("<b>mSQL support enabled</b><br>\n");
 #endif
-#ifdef HAVE_LIBMYSQL
-	PUTS("<b>mysql support enabled</b><br>\n");
-#endif
-#ifdef HAVE_LIBPQ
+#if HAVE_LIBPQ
 	PUTS("<B>Postgres95 support enabled</b><br>\n");
 #endif
-#ifdef HAVE_LIBSOLID
-	PUTS("<B>Solid support enabled</b><br>\n");
-#endif
-#ifdef ILLUSTRA
-	PUTS("<B>Illustra/Universal Server support enabled</b><br>\n");
-#endif
-#ifdef HAVE_SYBASE
-	PUTS("<B>Sybase support enabled</b><br>\n");
-#endif
-#ifdef HAVE_ODBC
-	PUTS("<B>ODBC support enabled</B><br>\n");
-#endif
-#ifdef HAVE_LIBADABAS
-	PUTS("<B>Adabas D support enabled</B><br>\n");
-#endif /*HAVE_LIBADABAS*/
-#ifdef GDBM
+#if GDBM
 	PUTS("<b>GDBM support enabled</b><br>\n");
 #else
-#ifdef NDBM
+#if NDBM
 	PUTS("<b>NDBM support enabled</b><br>\n");
 #else
 	PUTS("<b>FlatFile support enabled</b><br>\n");
@@ -328,14 +254,11 @@ void Info(void) {
 #if APACHE
 	PUTS("<b>Apache module support enabled</b><br>\n");
 #endif
-#ifdef HAVE_LIBGD
+#if HAVE_LIBGD
 	PUTS("<b>GD support enabled</b><br>\n");
 #endif
 #if GOOMBAServerFASTCGI
 	PUTS("<b>FastCGI support enabled</b><br>\n");
-#endif
-#if GOOMBAServer_SAFE_MODE
-	PUTS("<b>SAFE MODE Enabled!</b><br>\n");
 #endif
 	PUTS("</body></html>");
 }

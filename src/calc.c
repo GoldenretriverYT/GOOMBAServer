@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,10 +19,11 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
+/* $Id: calc.c,v 1.8 2022/05/16 15:29:16 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
-#include "GOOMBAServer.h"
-#include "parse.h"
+#include <GOOMBAServer.h>
+#include <parse.h>
 #include <math.h>
 #include <ctype.h>
 
@@ -207,11 +208,11 @@ int CalcInc(int op) {
 					sprintf(temp,"%ld",s->intval);		
 					if(!s->var) Push(temp,LNUMBER);
 					else {
-						if(s->var->iname) {
+						if(s->var->count > 1) {
 							Push(s->var->iname,STRING);
 							Push(temp,LNUMBER);
 							SetVar(s->var->name,2,0);
-						} else {
+						} else {	
 							Push(temp,LNUMBER);
 							SetVar(s->var->name,0,0);
 						}
@@ -222,7 +223,7 @@ int CalcInc(int op) {
 					sprintf(temp,"%ld",s->intval);
 					if(!s->var) Push(temp,LNUMBER);
 					else {
-						if(s->var->iname) {
+						if(s->var->count > 1) {
 							Push(s->var->iname,STRING);
 							Push(temp,LNUMBER);
 							SetVar(s->var->name,2,0);
@@ -241,7 +242,7 @@ int CalcInc(int op) {
 					sprintf(temp,"%.10f",s->douval);
 					if(!s->var) Push(temp,DNUMBER);
 					else {
-						if(s->var->iname) {
+						if(s->var->count > 1) {
 							Push(s->var->iname,STRING);
 							Push(temp,DNUMBER);
 							SetVar(s->var->name,2,0);
@@ -256,7 +257,7 @@ int CalcInc(int op) {
 					sprintf(temp,"%.10f",s->douval);
 					if(!s->var) Push(temp,DNUMBER);
 					else {
-						if(s->var->iname) {
+						if(s->var->count > 1) {
 							Push(s->var->iname,STRING);
 							Push(temp,DNUMBER);
 							SetVar(s->var->name,2,0);
@@ -294,7 +295,7 @@ void Neg(void) {
 	}
 	if(!s->var) Push(temp,LNUMBER);
 	else {
-		if(s->var->iname) {
+		if(s->var->count > 1) {
 			Push(s->var->iname,STRING);
 			Push(temp,LNUMBER);
 			SetVar(s->var->name,2,0);
@@ -303,89 +304,6 @@ void Neg(void) {
 			SetVar(s->var->name,0,0);
 		}
 	}
-}
-
-void BitNot(void) {
-	Stack *s;
-	char temp[128];
- 
-	s = Pop();
-	if(!s) {
-		Error("Stack Error - Expecting value after ~ operator");
-		return;
-	}
-	switch(s->type) {
-		case LNUMBER:
-			sprintf(temp,"%ld",~s->intval);
-			break;
-		case DNUMBER:
-			sprintf(temp,"%.10f",(double)(~(int)s->douval));
-			break;
-		case STRING:
-			sprintf(temp,"%d",~(int)strlen(s->strval));
-			break;
-	}
-	if(!s->var) Push(temp,LNUMBER);
-	else {
-		if(s->var->iname) {
-			Push(s->var->iname,STRING);
-			Push(temp,LNUMBER);
-			SetVar(s->var->name,2,0);
-		} else {	
-			Push(temp,LNUMBER);
-			SetVar(s->var->name,0,0);
-		}
-	}
-}
-
-/* Shift right */
-void shr(void) {
-	Stack *s;
-	char temp[32];
-	long i,num,bits;
-
-	s=Pop();
-	if(!s) {
-		Error("Stack error in shr");
-		return;
-	}
-	bits=s->intval;
-
-	s=Pop();
-	if(!s) {
-		Error("Stack error in shr");
-		return;
-	}
-	num = s->intval;
- 
-	i = num >> bits;
-	sprintf(temp,"%ld",i);
-	Push(temp,LNUMBER);
-}
-
-/* Shift left */
-void shl(void) {
-	Stack *s;
-	char temp[32];
-	long i,num,bits;
-
-	s=Pop();
-	if(!s) {
-		Error("Stack error in shl");
-		return;
-	}
-	bits=s->intval;
-
-	s=Pop();
-	if(!s) {
-		Error("Stack error in shl");
-		return;
-	}
-	num = s->intval;
- 
-	i = num << bits;
-	sprintf(temp,"%ld",i);
-	Push(temp,LNUMBER);
 }
 
 /* Binary to Decimal conversion */
@@ -411,11 +329,11 @@ void BinDec(void) {
 	Push(temp,LNUMBER);
 }
 
-/* Decimal to Binary */
+/* Decimal to Binary Conversion */
 void DecBin(void) {
 	Stack *s;
 	char temp[48];
-	long num;
+	long num, exp;
 	int i=0;
 
 	s = Pop();
@@ -424,65 +342,52 @@ void DecBin(void) {
 		return;
 	}
 	num = s->intval;
-	if (num==0){
-		Push("0",STRING);
-		return;
-	}
-	i = 46;
-	temp[47]='\0';
-	while(num>0) {
-		if(num % 2 ) 
+	exp = log(num)/log(2);
+	temp[0] = '1';
+	temp[1] = '\0';
+	i = 1;
+	num -= pow(2,exp--);
+	while(exp>-1) {
+		if(num >= pow(2,exp)) {
 			temp[i]='1';
-		else 
-			temp[i]='0';
-		i--;
-		num/=2;
+			num -= pow(2,exp);
+		} else temp[i]='0';
+		temp[++i] = '\0';
+		exp--;
 	}
-	Push(temp+i+1,STRING);
+	Push(temp,STRING);
 }
 
-/* Decimal to Hexadecimal - Ben Eng */ 
+/* Decimal to Hexadecimal */
 void DecHex(void) {
 	Stack *s;
-	static char hex_digit[] = "0123456789abcdef";
-	char temp[64];
-	char *result;
-	int nibbles = sizeof( long ) * 2 ;
-	int i; /* char offset in buf */
-	int value;
-	long n;
+	char hex[17] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F',0 };
+	long num,exp,val;
+	char temp[32];
+	int i=0;
 
 	s = Pop();
 	if(!s) {
-		Error("Stack error in hexdec");
+		Error("Stack error in dechex");
 		return;
 	}
-	n = s->intval;	
-	i = nibbles; /* char offset in buffer */
-	result = temp + nibbles - 1; /* ensure at least one digit is returned */
-	while( --i >= 0 ) {
-		/* mask the low nibble */
-		value = n & 0x0f;
-		temp[i] = hex_digit[value];
-
-		/* shift over the next nibble */
-		if( i > 0 ) {
-			n >>= 4;
-
-			/* another significant digit? */
-			if( n != 0 ) result = temp + i - 1;
-		}
+	num = s->intval;
+	exp = log(num)/log(16);
+	while(exp>-1) {
+		val = num/pow(16,exp);
+		temp[i++] = hex[val];
+		temp[i]='\0';
+		if(val) num -= val*pow(16,exp);
+		exp--;
 	}
-
-	/* terminate the string */
-	temp[nibbles] = '\0';
-
-	Push(result,STRING);
+	Push(temp,STRING);
 }	
 
 /* Hexadecimal to Decimal */
 void HexDec(void) {
 	Stack *s;
+	long mult=1, num=0;
+	int i,c;
 	char temp[32];
 
 	s = Pop();
@@ -490,28 +395,23 @@ void HexDec(void) {
 		Error("Stack error in hexdec");
 		return;
 	}
-	sprintf(temp,"%ld",_HexDec(s->strval));
-	Push(temp,LNUMBER);
-}
-
-long _HexDec(char *s) {
-	long mult=1, num=0;
-	int i,c;
-
-	i = strlen(s)-1;
+	i = strlen(s->strval)-1;
 	while(i>-1) {
-		c = toupper(s[i--]);
+		c = toupper((s->strval)[i--]);
 		if(c<'0' || c > 'F') continue;
 		if(c <= '9') num+=mult*(c-'0');
 		else num+=mult*(c-'A'+10);
 		mult *= 16;
 	}
-	return(num);
+	sprintf(temp,"%ld",num);
+	Push(temp,LNUMBER);
 }
 
 /* Octal to Decimal */
 void OctDec(void) {
 	Stack *s;
+	long mult=1, num=0;
+	int i,c;
 	char temp[32];
 
 	s = Pop();
@@ -519,61 +419,39 @@ void OctDec(void) {
 		Error("Stack error in octdec");
 		return;
 	}
-	sprintf(temp,"%ld",_OctDec(s->strval));
-	Push(temp,LNUMBER);
-}
-
-long _OctDec(char *s) {
-	long mult=1, num=0;
-	int i,c;
-
-	i = strlen(s)-1;
+	i = strlen(s->strval)-1;
 	while(i>-1) {
-		c = s[i--];
+		c = (s->strval)[i--];
 		if(c<'0' || c > '7') continue;
 		num+=mult*(c-'0');
 		mult *= 8;
 	}
-	return(num);
+	sprintf(temp,"%ld",num);
+	Push(temp,LNUMBER);
 }
 
 /* Decimal to Octal */
 void DecOct(void) {
 	Stack *s;
-	long n;
-	char temp[128];
-	char *result;
-	int nibbles = sizeof( long ) * 5/2;
-	int i; /* char offset in buf */
-	int value;
+	long num,exp,val;
+	char temp[32];
+	int i=0;
 
 	s = Pop();
 	if(!s) {
 		Error("Stack error in decoct");
 		return;
 	}
-	n = s->intval;
-
-	i = nibbles; /* char offset in buffer */
-	result = temp + nibbles - 1; /* ensure at least one digit is returned */
-	while( --i >= 0 ) {
-		/* mask the low nibble */
-		value = n & 0x07;
-		temp[i] = '0'+value;
-
-		/* shift over the next nibble */
-		if( i > 0 ) {
-			n >>= 3;
-
-			/* another significant digit? */
-			if( n != 0 ) result = temp + i - 1;
-		}
+	num = s->intval;
+	exp = log(num)/log(8);
+	while(exp>-1) {
+		val = num/pow(8,exp);
+		temp[i++] = '0'+val;
+		temp[i]='\0';
+		if(val) num -= val*pow(8,exp);
+		exp--;
 	}
-
-	/* terminate the string */
-	temp[nibbles] = '\0';
-
-	Push(result,STRING);
+	Push(temp,STRING);
 }	
 
 void Abs(void) {
@@ -600,26 +478,6 @@ void Exp(void) {
 		return;
 	}
 	sprintf(temp,"%f",exp(s->douval));	
-	Push(temp,DNUMBER);
-}
-
-void Pow(void) {
-	Stack *s;
-	char temp[64];
-	double power;
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in pow");
-		return;
-	}
-	power = s->douval;
-	s = Pop();
-	if(!s) {
-		Error("Stack error in pow");
-		return;
-	}
-	sprintf(temp,"%f",pow(s->douval,power));	
 	Push(temp,DNUMBER);
 }
 
@@ -705,30 +563,3 @@ void Sqrt(void) {
 	sprintf(temp,"%f",sqrt(s->douval));	
 	Push(temp,DNUMBER);
 }
-
-void Ceil(void) {
-	Stack *s;
-	char temp[64];
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in ceil");
-		return;
-	}
-	sprintf(temp,"%f",ceil(s->douval));
-	Push(temp,DNUMBER);
-}
-
-void Floor(void) {
-	Stack *s;
-	char temp[64];
-
-	s = Pop();
-	if(!s) {
-		Error("Stack error in floor");
-		return;
-	}
-	sprintf(temp,"%f",floor(s->douval));
-	Push(temp,DNUMBER);
-}
-

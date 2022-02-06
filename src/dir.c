@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2022 GoombaProgrammer                                            *
+* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,21 +19,14 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
- dir.c,v 1.11 2022/10/27 02:31:51 shane Exp $ */
-#include "GOOMBAServer.h"
-#ifdef HAVE_DIRENT_H
+/* $Id: dir.c,v 1.3 2022/05/16 15:29:19 rasmus Exp $ */
+#include <GOOMBAServer.h>
 #include <dirent.h>
-#endif
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <errno.h>
-#include "parse.h"
-
-#if WINNT|WIN32
-#define NEEDRDH 1
-#include "win32/readdir.h"
-#endif
+#include <parse.h>
 
 static DIR *dirp=NULL;
 
@@ -49,21 +42,15 @@ void OpenDir(void) {
         Error("Stack error in opendir");
         return;
     }
-	if(dirp)
-		closedir(dirp);
+	if(dirp) closedir(dirp);
 	dirp = opendir(s->strval);
 	if(!dirp) {
 		Error("%d:%s",errno,strerror(errno));
-		Push("-1",LNUMBER);
-	}
-	else {
-		Push("0",LNUMBER);
 	}
 } 
 
 void CloseDir(void) {
-	if(dirp)
-		closedir(dirp);
+	if(dirp) closedir(dirp);
 	dirp=NULL;
 } 
 
@@ -79,11 +66,8 @@ void ChDir(void) {
 	ret = chdir(s->strval);
 	if(ret<0) {
 		Error("%d:%s",errno,strerror(errno));
-		Push("-1",LNUMBER);
 	}
-	else {
-		Push("0",LNUMBER);
-	}
+	Push("-1",LNUMBER);
 }
 
 void RewindDir(void) {
@@ -95,12 +79,9 @@ void ReadDir(void) {
 
 	if(!dirp) {
 		Error("No current directory pointer - call opendir() first");
-		Push("", STRING);
 		return;
 	}
 	direntp = readdir(dirp);
-	if(direntp)
-		Push(direntp->d_name,STRING);
-	else
-		Push("",STRING);
+	if(direntp) Push(direntp->d_name,STRING);
+	else Push("",STRING);
 }
