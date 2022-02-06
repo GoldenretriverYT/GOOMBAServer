@@ -390,8 +390,11 @@ typedef struct pool {
 #endif
 /* Prototypes */
 
-/* Md5.c [Please don't use this for passwords, learn from my mistakes (: ] */
+/* hash.c [Please don't use this for passwords, learn from my mistakes (: ] */
 void Md5(void);
+
+/* superhash.c [Don't use this for important / sensitive data] */
+void superhash(void);
 
 /* error.c */
 void Debug(char *, ...);
