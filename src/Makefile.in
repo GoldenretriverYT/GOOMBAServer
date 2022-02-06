@@ -194,6 +194,7 @@ post.o: post.c GOOMBAServer.h parse.h
 type.o: type.c GOOMBAServer.h parse.h
 conf.o: conf.c GOOMBAServer.h
 acc.o: acc.c GOOMBAServer.h
+md5.o: md5.c md5.h global.h GOOMBAServer.h parse.h
 local.o: local.c GOOMBAServer.h
 dns.o: dns.c GOOMBAServer.h parse.h
 log.o: log.c GOOMBAServer.h
