@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,19 +19,21 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: while.c,v 1.12 2022/05/16 15:29:32 rasmus Exp $ */
+ while.c,v 1.18 2022/10/25 20:54:51 mitch Exp $ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <GOOMBAServer.h>
-#include <parse.h>
+#include "GOOMBAServer.h"
+#include "parse.h"
 
 static WhileStack *top=NULL;
 static WhileMark *mark=NULL;
+static long WhileCount;
 
 void GOOMBAServer_init_while(void) {
 	top = NULL;
 	mark=NULL;
+	WhileCount=0;
 }
 
 void ShowWhileStack(void) {
@@ -100,7 +102,7 @@ void PopWhileMark(void) {
 	}
 }
 
-void While(void) {
+void While(long sp) {
 	Stack *s;
 	int active, state, c;
 	
@@ -112,8 +114,15 @@ void While(void) {
 			return;
 		}
 		c = CheckCond(s);
+#ifdef GOOMBAServer_LOOPLIMIT
+		WhileCount++;
+		if(c!=0 && WhileCount>GOOMBAServer_LOOPLIMIT) {
+			Error("Program in infinite loop (exceeded GOOMBAServer_LOOPLIMIT), aborting");
+			c = 0;
+		}
+#endif
 		top->state = c;
-		if(NewWhileIteration()) {
+		if(NewWhileIteration(sp)) {
 			CondPush(c,-4);
 			BracePush(ENDWHILE);
 		} else {
@@ -137,11 +146,11 @@ void EndWhile(void) {
 		Error("endwhile misplaced");
 		return;
 	}	
-/*	BracePush(ENDWHILE); */
 	if(state && (t=WhilePeek())) {
 		WhileAgain(t->seekpos,t->offset,t->lineno);
 	} else {
 		CondPop(&active);
 		BracePop();
+		WhileFinish();
 	}
 }

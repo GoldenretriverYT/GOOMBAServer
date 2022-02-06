@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,27 +19,26 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-
-#include <GOOMBAServer.h>
-#if HAVE_UNISTD_H
+#include "GOOMBAServer.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#if HAVE_CRYPT_H
+#ifdef HAVE_CRYPT_H
 #include <crypt.h>
 #endif
-#if TM_IN_SYS_TIME
+#ifdef TM_IN_SYS_TIME
 #include <sys/time.h>
 #else
 #include <time.h>
 #endif
-#include <parse.h>
+#include "parse.h"
 
 /*
  * If mode is non-zero, a salt is expected.
  * If mode is zero, a pseudo-random salt will be selected.
  */
 void Crypt(int mode) {
-#if HAVE_CRYPT
+#ifdef HAVE_CRYPT
 	Stack *s;
 	char salt[8];
 	char *enc;
@@ -63,6 +62,7 @@ void Crypt(int mode) {
 		salt[1] = 'a' + (time(NULL) % 26);
 		salt[2] = '\0';
 	}
+	StripSlashes(s->strval);
 	enc = (char *)crypt(s->strval,salt);
 #if DEBUG
 	Debug("Crypt returned [%s]\n",enc);

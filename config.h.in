@@ -18,6 +18,9 @@
 /* Define if you have the memcpy function.  */
 #undef HAVE_MEMCPY
 
+/* Define if you have the memmove function.  */
+#undef HAVE_MEMMOVE
+
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
 
@@ -63,6 +66,24 @@
 /* Define if you have the lrand48 function.  */
 #undef HAVE_LRAND48
 
+/* Define if you have the link function.  */
+#undef HAVE_LINK
+
+/* Define if you have the symlink function.  */
+#undef HAVE_SYMLINK
+
+/* Define if you have the regcomp function.  */
+#undef HAVE_REGCOMP
+
+/* Define if you have the cuserid function.  */
+#undef HAVE_CUSERID
+
+/* Define if you have the getlogin function.  */
+#undef HAVE_GETLOGIN
+
+/* Define if you have the alloca function.  */
+#undef HAVE_ALLOCA
+
 /* Define if you have the <dirent.h> header file.  */
 #undef HAVE_DIRENT_H
 
@@ -90,6 +111,21 @@
 /* Define if you have the <memory.h> header file.  */
 #undef HAVE_MEMORY_H
 
+/* Define if you have the <pwd.h> header file.  */
+#undef HAVE_PWD_H
+
+/* Define if you have the <grp.h> header file.  */
+#undef HAVE_GRP_H
+
+/* Define if you have the <syslog.h> header file.  */
+#undef HAVE_SYSLOG_H
+
+/* Define if you have the <sys/socket.h> header file.  */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define if you have the <sys/wait.h> header file.  */
+#undef HAVE_SYS_WAIT_H
+
 /* Define if you an ndbm compatible library (-ldbm).  */
 #undef NDBM
 
@@ -104,4 +140,3 @@
 
 /* Define if you have the gd library (-lgd).  */
 #undef HAVE_LIBGD
-

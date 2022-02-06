@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,12 +19,11 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: stack.c,v 1.18 2022/05/29 12:38:45 rasmus Exp $ */
 /* Expression Stack */
 #include <stdlib.h>
 #include <string.h>
-#include <GOOMBAServer.h>
-#include <parse.h>
+#include "GOOMBAServer.h"
+#include "parse.h"
 
 static Stack *top=NULL;
 
@@ -39,7 +38,7 @@ void ShowStack(void) {
 	Debug("ShowStack()\n");
 	s=top;
 	while(s) {
-		Debug("(%s)%d",s->strval?s->strval:(unsigned char *)"NULL",s->type);
+		Debug("(%s)%d",s->strval?s->strval:(char *)"NULL",s->type);
 		s=s->next;
 	}
 	if(top) Debug("\n");
@@ -51,10 +50,11 @@ void ClearStack(void) {
 	top=NULL;
 }
 	
-void Push(unsigned char *value, int type) {
+void Push(char *value, int type) {
 	Stack *new, *s=NULL;
-	VarTree *t;
-	int next=0;
+	VarTree *t, *t2=NULL;
+	int next=0,skip=0;
+	char *name=NULL;
 
 	if(!value) return;
 	if(type==ARRAY) {
@@ -64,22 +64,41 @@ void Push(unsigned char *value, int type) {
 			return;
 		}
 	} else if(type== -ARRAY) { type=ARRAY; next=1; }
-
 	new = emalloc(2,sizeof(Stack));
 	new->type   = type;
 	new->next   = NULL;
 	new->strval = NULL;
 	new->var = NULL;
-	if(type==DNUMBER || type==LNUMBER) {
-		new->strval = estrdup(2,value);
+	new->flag = 0;
+	if(type==DNUMBER) {
 		new->intval = atol(value);
 		new->douval = atof(value);
+		while(*(value+skip) && *(value+skip)=='0' && *(value+skip+1)!='.') skip++;
+		if(strlen(value+skip)) new->strval = estrdup(2,value+skip);
+		else new->strval = estrdup(2,"0");
+ 	} else if(type==LNUMBER) {
+		new->intval = atol(value);
+		new->douval = atof(value);
+		while(*(value+skip) && *(value+skip)=='0' && *(value+skip+1)!='.') skip++;
+		if(strlen(value+skip)) new->strval = estrdup(2,value+skip);
+		else new->strval = estrdup(2,"0");
 	} else if(type==STRING) {
 		new->strval = SubVar(estrdup(2,value));
 		new->intval = atol(new->strval);
 		new->douval = atof(new->strval);
 	} else if(type==VAR) {
-		t = GetVar(value,NULL,0);
+		if(*value == VAR_INIT_CHAR) {
+			t = GetVar(value+1,NULL,0);
+			if(t && t->strval) {
+				name = estrdup(2,t->strval);
+				t2 = GetVar(t->strval,NULL,0);
+				t = t2;
+			} else {
+				name = estrdup(2,value+1);
+			}
+		} else {
+			t = GetVar(value,NULL,0);
+		}
 		if(!t) {
 #if DEBUG
 			Debug("Undefined variable: %s\n",value);
@@ -88,12 +107,26 @@ void Push(unsigned char *value, int type) {
 			new->intval = 0;
 			new->douval = 0;
 			new->type = STRING;
+			Push("",STRING);	
+			if(name && *value == VAR_INIT_CHAR) {
+				SetVar(name,0,-2);
+				t = GetVar(value,NULL,0);
+			} else {
+#if DEBUG
+				Debug("Calling SetVar with (%s,0,-2)\n",value);
+#endif
+				SetVar(value,0,-2);
+				t = GetVar(value,NULL,0);
+			}
+			new->var = t;
+			new->flag = 0;
 		} else {
 			new->strval = estrdup(2,t->strval);
 			new->intval = t->intval;
 			new->douval = t->douval;
 			new->type = t->type;
 			new->var = t;
+/*			new->flag = (t->next)?1:0;  */
 			new->flag = 1;
 		}
 	} else if(type==ARRAY) {
@@ -107,12 +140,14 @@ void Push(unsigned char *value, int type) {
 			new->intval = 0;
 			new->douval = 0;
 			new->type = STRING;
+			new->flag=0;
 		} else {
 			new->strval = estrdup(2,t->strval);
 			new->intval = t->intval;
 			new->douval = t->douval;
 			new->type = t->type;
 			new->var = t;
+		/*	new->flag = 1; */
 			new->flag = 0;
 		}
 	}

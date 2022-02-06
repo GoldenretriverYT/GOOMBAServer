@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -23,31 +23,47 @@
  * Contributed by Paul Panotzki - Bunyip Information Systems
  *                                                         
  */
-/* $Id: fsock.c,v 1.3 2022/05/17 18:57:43 rasmus Exp $ */
-#include <GOOMBAServer.h>
+ fsock.c,v 1.14 2022/09/18 20:31:15 shane Exp $ */
+#include "GOOMBAServer.h"
 #include <stdlib.h>
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
 #include <sys/types.h>
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+#if WINNT|WIN32
+#include <winsock.h>
+#else
+#include <netinet/in.h>
+#include <netdb.h>
+#endif
+#if WINNT|WIN32
+#undef AF_UNIX
+#endif
 #if defined(AF_UNIX)
 #include <sys/un.h>
 #endif
-#include <netinet/in.h>
-#include <netdb.h>
 
 #include <string.h>
 #include <errno.h>
-#include <parse.h>
+#include "parse.h"
 
 void FSockOpen(void) {
 	Stack *s;
 	char temp[8];
 	FILE *fp;
-	int id, portno, socketd;
+	int id, socketd;
+#ifdef WIN32
+	unsigned short portno;
+	struct hostent FAR *hostp;
+	struct hostent FAR * FAR PASCAL gethostbyname();
+#else
+	int portno;
 	struct hostent *hostp, *gethostbyname();
+#endif
 
 	s = Pop();
 	if(!s) {
@@ -61,7 +77,12 @@ void FSockOpen(void) {
 	}
 #endif
 
+#if WINNT|WIN32
+	/* don't know if this is a good thing */
+	portno = (unsigned short) s->intval;
+#else
 	portno = s->intval;
+#endif
 
 	s = Pop();
 	if(!s) {
@@ -122,14 +143,14 @@ void FSockOpen(void) {
 		return;
 	}
 
-#if HAVE_SETVBUF  
+#ifdef HAVE_SETVBUF  
 	if ((setvbuf(fp, NULL, _IONBF, 0)) != 0){
 		Push("-7",LNUMBER);
 		return;
 	}
 #endif
  
-	id = FpPush(fp,s->strval);
+	id = FpPush(fp,s->strval,1);
 	sprintf(temp,"%d",id);	
 	Push(temp,LNUMBER);
 }	

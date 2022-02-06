@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,10 +19,9 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-
 #include <stdlib.h>
-#include <GOOMBAServer.h>
-#include <parse.h>
+#include "GOOMBAServer.h"
+#include "parse.h"
 
 #ifndef RAND_MAX 
 #define RAND_MAX	32767
@@ -36,7 +35,7 @@ void Srand(void) {
 		Error("Stack error in srand");
 		return;
 	}
-#if HAVE_SRAND48
+#ifdef HAVE_SRAND48
 	srand48((unsigned int)s->intval);	
 #else
 	srand((unsigned int)s->intval);	
@@ -46,7 +45,7 @@ void Srand(void) {
 void Rand(void) {
 	char temp[32];
 
-#if HAVE_LRAND48
+#ifdef HAVE_LRAND48
 	sprintf(temp,"%ld",lrand48());
 #else
 	sprintf(temp,"%d",rand());
@@ -57,7 +56,7 @@ void Rand(void) {
 void GetRandMax(void) {
 	char temp[32];
 
-#if HAVE_LRAND48
+#ifdef HAVE_LRAND48
 	strcpy(temp,"2147483648");
 #else
 	sprintf(temp,"%d",RAND_MAX);

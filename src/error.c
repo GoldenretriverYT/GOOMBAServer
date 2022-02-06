@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,10 +19,9 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: error.c,v 1.18 2022/05/23 14:18:28 rasmus Exp $ */
-#include <GOOMBAServer.h>
-#include <parse.h>
-#if HAVE_UNISTD_H
+#include "GOOMBAServer.h"
+#include "parse.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <stdlib.h>
@@ -77,7 +76,8 @@ void Error(char *fmt,...) {
 	char msg[1024];		/* temporary string */
 	char buf[1024];
 	va_list ap;
-	char *line=NULL, *s;
+	char *line=NULL;
+	char *s;
 	int pos=0, i=0, length=0;
 
 	va_start(ap, fmt);
@@ -103,8 +103,8 @@ void Error(char *fmt,...) {
 	fputs(msg,fpdebug);	
 	fflush(fpdebug);
 #endif
-	Push(msg,STRING);
-	SetVar("GOOMBAServererrmsg",0,0);
+	Push((char *)msg,STRING);
+	SetVar((char *)"GOOMBAServererrmsg",0,0);
 
 	if(PrintErrors) {
 		s = GetCurrentFilename();
@@ -114,7 +114,7 @@ void Error(char *fmt,...) {
 			sprintf(buf,"<b>%s</b><br>\n",msg);
 		PUTS(buf);
 		line = GetCurrentLexLine(&pos, &length);
-		s = line;
+		s = (char *)line;
 		if(s && length) PUTS("<tt>");
 #ifndef APACHE
 		fflush(stdout);
@@ -138,7 +138,7 @@ void Error(char *fmt,...) {
 				break;
 			default:
 #if APACHE
-				rputc(*s,GOOMBAServer_rqst);
+				PUTC(*s);
 #else
 				fputc(*s,stdout);
 #endif
@@ -174,5 +174,5 @@ void SetErrorReporting(void) {
 	}
 	ret = ErrorPrintState(s->intval);
 	sprintf(temp,"%d",ret);
-	Push(temp,LNUMBER);
+	Push((char *)temp,LNUMBER);
 }

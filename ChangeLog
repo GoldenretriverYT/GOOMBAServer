@@ -1,6 +1,380 @@
-GOOMBAServer    CHANGE LOG                                                    ChangeLog
+GOOMBAServer CHANGE LOG                                                    ChangeLog
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-May. 31 Version 1.00
+November 12 Version 1.1
+- Add Ora_Bind() function <dizzy@glas.net>
+- Add GetAllHeaders() function <ssb@guardian.no>
+- Fix security holes in examples/{m,my}log.html <ssb@guardian.no>
+- Add FPassThru function <ssb@guardian.no>
+- Fix compile problem in snmp support <ssb@guardian.no>
+- Fix syslog support in configure <ssb@guardian.no>
+- Fix some Oracle bugs, add support for NULL columns <mitch@spiralmedia.com>
+  and <ssb@guardian.no>
+- Add support for persistent Oracle connections <mitch@spiralmedia.com>
+- Fix array count/unset interactive bug
+- Add RSort() and ARSort() functions to sort in descending order
+- CGI version ~user bug fix
+- Add GOOMBAServerLastModified Apache directive <pvanhaes@be.oracle.com>
+- Fix typo in solid.c
+- Fix \ bug in Sprintf()
+- Add FilePro support <chadr@brttech.com>
+- Add GOOMBAServerAutoPrependFile/GOOMBAServerAutoAppendFile Apache directives <ssb@guardian.no>
+- Add StrTR() function <miko@ns.dcit.cz>
+- Add initial Illustra support <simon@oyster.co.uk>
+- Make isset() and unset() work correctly for array elements
+- Fix NULL blob bug in Solid code <sopwith@redhat.com>
+- Sybase connections were not being closed <scbiondi@webdesigngroup.com>
+- UrlEncode shouldn't be encoding '/' - fixed
+- Fix blank-line handling in command line -q mode <tbrown@baremetal.com>
+- Fix elseif parser bug
+- Fix possible 64-bit architecture alignment problem <doussot@via.ecp.fr>
+- Push null string onto stack if GetEnv fails <eden@queer.org.au>
+- Add shl() and shr() bit shifting functions <elanda@comstar.net>
+- Fix buffer underrun in Exec() code <scott@ceweekly.com>
+- Fix Oracle DateType field length bug <OF@netuse.de>
+- Reverse dbm content-size fix from 1.1b12 for GDBM <W.Janssen@uci.kun.nl>
+- Get rid of explicit calls to exit() from Sybase driver
+- Add sybsql_checkconnect() function
+- Add GDBM_FIX #define to GOOMBAServer.h
+- Move CVS repostitory to inet-dev.bellglobal.com
+- Move GOOMBAServer home web site to GOOMBAServer.iquest.net
+- Fixed SAFE_MODE typos in head.c and var.c
+- Change mailing list instructions to point to GOOMBAServer-list@GOOMBAServer.iquest.net
+- A post'ed "0" should be treated as an integer, not a string - fixed
+- Date("i") should print " 1" not "01" - fixed
+- Fix critical bug in the internal FixFilename() function 
+  <Meno.Abels@Technical.Adviser.com>
+- Fix Oracle example in documentation <m.ramsch@ieee.org> 
+- Fix dbm logging + DOCUMENT_ROOT bug
+- Add first cut at ODBC support <brian@tool.net>
+- Fix mysql_listfields() core dump <gareth@marvin.netcom.co.uk>
+- Add Ceil() and Floor() functions
+- Fix $req_* request variables with -'s in them (map to _)
+- Add Adabas D support <kara@bibo.met.fu-berlin.de>
+- Fixed blob handling for Adabas <kara@bibo.met.fu-berlin.de>
+- Change QuoteMeta to escape ()'s
+- Make Parser understand <?...?> syntax for forward compatibility with GOOMBAServer3
+- Fix md5()-Apache 1.3 compatibility problem
+- CVS repository moved to www.lerdorf.on.ca
+
+June 16 Version 1.1b12
+- Fix spinning httpd problem <terrym@iquest.net>
+- Was munmap'ing 1 too few bytes - fixed
+- Add array regression tests <fick@toadfish.fgm.com>
+- Don't free returned pointer from getlogin() <kalkin@Ix.netcom.com>
+- Fix core dump problems on some platforms caused by calling Exit from within
+  a function in an included file
+- Optional conversion of postgress field names to lower case in pg_result() 
+  function (See GOOMBAServer_PG_LOWER in GOOMBAServer.h)
+- Array assignment bug fixes
+- Fix Include from inside a user-defined function
+- Fix Set/Unset/Set count bug
+- Have mysql interface check both getlogin and cuserid to find the current
+  user id.
+- Added ClearStack() hack/workaround function
+- Fixed potential mmap leak
+- ++ and -- on first 2 elements of an array were broken in 1.1b11 - fixed
+- Fix bug associated with sorting an array with deleted items
+- Fix command-line GOOMBAServer.cgi argv bug
+- Change UrlEncode to encode a space with a +
+- Fix PATH_DIR bug introduced in b11's security fix code
+- Add Flush() command to flush output buffer for both module and CGI version
+- Make System() call flush after each line of output
+- Prepend owner uid to http auth realm string in safe mode
+- Add $req_* variables for accessing request header values
+- Fix SAFE_MODE Exec() calls to not cut off command line arguments
+- Make pclose() return the status of the executed command
+- Fix StrongHold related core dump
+- Fix core dump in count() function when called with a bogus array
+- Fix Eval() stack problem
+- Fix Safe Mode problems related to dealing with non-existant files
+- Fixed compiler warnings
+- Fixed Solid_Close() bug
+- Postgres install patch <jafo@tummy.com>
+- Add Oracle install/Makefile support <pvanhaes@be.oracle.com>
+- Add LogAs() function <eden@queer.org.au>
+- Add NOLOGSUCCESSIVE directive to GOOMBAServer.h <eden@queer.org.au>
+- Unset single element array bug fix <edell@EECS.Berkeley.EDU>
+- Add regression test for the above
+- Fix MySQL username confusion
+- Add Stronghold compile option to install program
+- Fix global variable scope bug
+- Solid BLOB field fix <sopwith@redhat.com>
+- Change GOOMBAServer* Apache directives to be accessible from .htaccess when 
+  AllowOverride Options is set as opposed to FileInfo
+- Add GOOMBAServerEngine Apache directive that is only callable from *.conf
+  files and not .htaccess to let ISP's disable GOOMBAServer engine while
+  allowing other .htaccess Options to be overridden by .htaccess
+- dbm content-dsize fix
+
+Apr. 23 Version 1.1b11
+- Change GOOMBAServerXBitHack default setting to off
+- Make sure default logging is not mysql if mysql is not available
+- Rebuild configure script with AutoConf 2.12
+- Fixed parse_str() bug which prevented parse_str to set a variable a 2nd time
+- FastCGI fixes
+- Fix bugs in Reset(), Next(), Prev(), Key() and End() functions
+- Date() changes - 0 year arg allowed, return integer type when appropriate
+- mysql install changes to reflect new single client library setup of 3.20.3+
+- Added soundex() function <borud@guardian.no>
+- Fix IsSet() function which was broken in 1.1b10
+- Fix ClearStatCache() bug
+- Added GOOMBAServerDebug Apache configuration directive to turn off ?info screen
+- Made ?info screen be off by default
+- Changed mechanism for fetching environment variables on ?info screen
+- Fixed various array-related problems introduced in 1.1b10
+- Fixed mysql hanging connection bug
+- Extend configure check for crypt() <scrappy@hub.org>
+- Fix sort() function to make it work properly with associative arrays
+- Fix sort() to handle any arbitrary array size
+- Add Pos() function
+- Add pgurl example <emkxp01@mtcc.demon.co.uk>
+- Add GetImageSize() function based on code from Daniel Schmitt
+- Fix echo format string escape character bug
+- Add PNG image format support to GetImageSize() function
+- Add syslog(3) support <ssb@guardian.no>
+- Add md5() function - Lachlan Roche
+- Add support for mSQL 1.1 specific data types
+- Add Chop() function
+- Add ReadFile() function <adelino@infologia.pt>
+- Add mysql_insert_id() function <adelino@infologia.pt>
+- Add mysql_affected_rows() function <adelino@infologia.pt>
+- Rewrite DecHex() and DecOct() to not use floating point <ben@jetpen.com>
+- Fix Apache PATH_DIR bug
+- Fix bug in End() and Prev() functions
+- Fix Unset/UserDefinedFunction interaction bug
+- Fix core dump caused by user defined function names longer than 21 chars
+- Parse escapes before passing argument to Eval()
+- Fix typo in internal comp_long() function <deleeuw@stat.ucla.edu>
+- A number of fixes related to unsetting of arrays
+- Make HEAD requests to Apache module behave correctly
+- Fix Solid_FetchRow() bug <mvberkum@sci.kun.nl>
+- Close any open Solid connections upon script termination
+- Solid_Result($result,<number>) should work now. This used to SIGSEGV
+- Better handling of the column length.
+- Solid Date and time values should be visible now
+- Solid varchar(5) was always truncated to 4 characters - fixed
+- Fix MkTime() arg check bug
+- Fix Eval() so it works when called from inside a function
+- Add Asort() function to sort an associative array and remove confusing
+  guessing code from the Sort() function
+- Add basic SNMP support
+- Fix PATTERN_RESTRICT bug
+- Add SAFE MODE for shared access restrictions geared at ISP setups
+- Added Username/Password support to the mysql_connect function
+- Fix "$a[01]" vs. $a[01] bug
+- Add Umask() function <ssb@guardian.no>
+- Remove windows support files completely - Windows binary available now
+- Add "-q" flag to CGI version to suppress Content-type header from command 
+  line
+- Sprintf() enhancement by Jaromir Dolecek <dolecek@ics.muni.cz>
+- Fix zombie process bug in GD interface <copan@ppp.fastnet.or.jp>
+- Add GOOMBAServer_DOCUMENT_ROOT by default for CGI version (security advisory related) 
+- Check for '..' in path for CGI version (security advisory related)
+- Fix buffer overflow problems in FixFilename() function (security advisory)
+- Add initial support for Oracle databases <ssb@guardian.no>
+- Add headers option to Mail() <ssb@guardian.no>
+- Add FileType() function
+- Add CheckDate() function - Mitsuhiro Maeda <mitsu@tramp.co.jp>
+- Add alloca() function to local.c for systems that don't have it.
+- Add Username/Password support in all mysql functions <bonis@kiss.de>
+- Add cleanup function to make aborted Apache module requests clean up cleanly
+- Remove trailing slash exception on PATTERN_RESTRICT
+
+Jan. 12/97 Version 1.1b10
+- Add missing windows_install.txt file
+- Add Sybase support <ma_muquit@fccc.edu>
+- Fix broken DecBin() function <h-zubiet@uniandes.edu.co>
+- Updated lex.c and mysql.c for better mysql support <eugene@acenet.com.sg>
+- Fix bug which caused problems with binary file uploads <fegli@goldnet.ch>
+- Add reset_timeout() call to make sure long file uploads don't time out
+- Update mysql documentation
+- Remove useless mysql_regcase() function
+- Fixed postgres95 support for point and bool types <john@intelligent.co.uk>
+- Add IncludePath directive <ssb@guardian.no>
+- Fix inline ImageGif double-header problem <chall@koz.com>
+- Fix getnextchar() function which read 1 char too many
+- GOOMBAServerXBitHack support <root@thing.leech.com>
+- Added ClearStatCache() function to be used before File* functions
+  if cacheing is not desired.
+- While-loop memory optimizations
+- Add internal mechanism for creating read-only variables
+- Cleaned up array copying code; associative arrays can now be merged,
+  and normal arrays can be appended to each other with $a[]=$b;
+- Escape double-quotes as well as single quotes for Postgres95 if 
+  MAGIC_QUOTES is enabled.
+- Fix non-indexed array handling bug
+- Fix /* comment */ bug
+- Add support for global variable variables in functions
+- Add mysql-based logging (thanks to Wojciech Tryc <wojtek@tryc.on.ca>
+  for the debugging help)
+- Add mysql-based log analyzer (examples/mylog.html)
+- Add Sybase documentation
+- Fix SubVar bug
+- StrTok multiple delimiter bug fix <zeller@fh-heilbronn.de>
+
+Dec. 5 Version 1.1b9
+- Document msql_close function
+- Fix large int bug introduced in b8
+- Fix decimal point bug introduced in b8
+- Fix 'h' Date() problem 00 should be 12
+- Fix floating point bug introduced in b8
+- Fix some Irix compiler warnings
+- Add UniqId() function <ssb@guardian.no>
+- Add initial rough mysql support <eugene@acenet.com.sg>
+- Fix memmove compile problem for SunOS4
+- Remove tmagic.c file - an idea that never went anywhere
+- By popular demand, values with leading zeroes received through
+  GET/POST/COOKIE data are now typed as strings
+- Add bitwise XOR (^) and bitwise NOT (~) operators to parser
+- Add mysql documentation to doc.html
+- Add some helpful hints regarding libgd and libregex to install/Makefile.in
+- Fix core dump which happened when going off the end of a deleted array
+- Add very limited Windows 95/NT support <je-blanc@uniandes.edu.co>
+- Add initial support for the Solid SQL Engine <jvdmost@digiface.digiface.nl>
+- Add Mail function <jvdmost@digiface.digiface.nl>
+- Add mSQL 1.1 specific support
+- Add MsqlListIndex() function for mSQL 1.1
+
+Nov. 13 Version 1.1b8
+- Fix broken PATTERN_RESTRICT code (I broke it in 1.1b7)
+- Fix array copying bug <dirk@merlin.nbg.sub.org>
+- Add Parse_Str function <veebert@dimensional.com>
+- Fix unset($array) bug
+- Reuse memory of unset arrays
+- A lot of regex libraries out there seem to be broken.  The default is now
+  to use the bundled regex library
+- Fixed nasty nested user Function/while loop parser bug
+- Fix silly elseif() bug
+- Add GOOMBAServerMsqlLogHost Apache directive <topping@mauswerks.com>
+- Fix ereg_replace() core dump
+- Fix off-by-one error in lex.c which caused garbage chars on some platforms
+  Many thanks to "Craig P. Forbes" <craig@mccabe.com> for catching this one.
+- Fix stack inconsistency which caused 01 != 1
+- Add user-callable msql_close() function
+- Add Apache 1.2 version of old get_client_block() code
+- Add # comments - # has to be first char on a line inside <? > block
+- Eliminate extraneous space in custom header fields in Apache module version
+
+Sept. 22 Version 1.1b7
+- Make max file size unlimited unless MAX_FILE_SIZE is specified
+- Fix parser problem which would ignore the last line of a file unless there
+  was a carriage return or newline at the end of it
+- Fix problem in the lookaheadword function related to curly brace handling
+- Add check for Apache 1.2 regex support.
+- Document the fact that WWW-authenticate header must precede HTTP header
+  in order for GOOMBAServer-based authentication to work with MSIE
+- Added Pow() function which raises x to the power of y
+- support building the Apache module as a shared ELF file that will be
+  dynamically loaded by Apache (using Yves' dl_module module);
+  <Yves.Arrouye@marin.fdn.fr>
+- support for statically linking libmsql and libpq into the .so Apache
+  module; <Yves.Arrouye@marin.fdn.fr>
+- support for building a libGOOMBAServer shared library on ELF (Linux, Solaris) systems;
+  <Yves.Arrouye@marin.fdn.fr>
+- addition of GOOMBAServer_USERDIR env. var to override compile default.
+  <Yves.Arrouye@marin.fdn.fr>
+- Made switch construct handle fall-through's a bit better
+- Cleaned up #if conditions and made most of them #ifdef to fix problems with
+  older versions of gcc
+- Switched to Posix regular expression library calls
+- Included Henry Spencer's Posix-compatible regex library for systems that do
+  not have native Posix regexp support
+- Added new Extended Regular expression calls Ereg(), Eregi(), Ereg_Replace()
+  and Eregi_Replace()
+- For backward compatibility, reg_match(), reg_search() and reg_replace()
+  were rewritten using the new Posix calls such that they appear *almost*
+  identical to the old functions (The Ereg calls are more efficient)
+
+Sept. 10 Version 1.1b6
+- Add escapes to Date() format string <niew@phoenix.cis.mcmaster.ca>
+- Fix Include() from within a function bug
+- Fix Header/SetCookie CGI bug
+- Fix content-type CGI header bug
+- Fix lexer code to be more intelligent about which CR/LF's to ignore
+- Add ability to use $argv[0]...$argv[n] to get command line arguments
+- Fix msqlDropDB number of arguments bug <mp@Nova-Ratio.de>
+- Fix stray StripSlashes() call in Popen() function
+- Nasty curly brace bugs fixed
+- Escape $ \ and ' in GOOMBAServer_AUTH_* vars
+- Added StripSlashes and AddSlashes functions
+- Added escape support for hexadecimal and octal (see #escapes in doc.html)
+
+Aug. 23 Version 1.1b5
+- Add StripSlashes() call to crypt() function
+- Check for fields longer than 63 chars in mSQL logging code since latest
+  versions of mSQL no longer auto-truncate
+- Added PassThru() function <cal@zls.com>
+- Fix ImageGif to make it able to return a GIF directly <cal@zls.com>
+- Lots of changes to documentation <libs@cityshop.com>
+- Fix potential core dumps in msql result functions
+- Added clock.html example program <cal@zls.com>
+- Made parser ignore CR/LF's if they come before any content
+  (this should make Header() function a bit easier to work with)
+- Set content-type early on in mod_GOOMBAServer.c
+
+Aug. 7 Version 1.1b4
+- Added 'F','A' and 'a' paramters to Date() function to do full month names,
+  AM/PM and am/pm respectively
+- Added UrlDecode() function
+- Fix $PATH_DIR bug (again)
+- Add snippet of code to allow people to change HTTP/1.0 # string
+  header line using the Header function
+- Fix ParseEscapes function such that escaping chars that do not need to be
+  escaped gets ignored and only the char is used
+- PATH_DIR wasn't getting set correctly if GOOMBAServer_ROOT_DIR was defined - fixed
+- Added optional variable tracking mechanism - see GOOMBAServer.h 
+  <hekc@phoenix.cis.mcmaster.ca>
+- Added code to set $GOOMBAServer_AUTH_USER, $GOOMBAServer_AUTH_PW and $GOOMBAServer_AUTH_TYPE
+  if client sends an authorization header
+- Make auth vars visible on info screen
+- Fix $ problem in pg95 driver
+- Added ReadLink() and LinkInfo() functions <adelino@infologia.pt>
+- Fix DecHex() bug
+- Altered pg_result to take field names -and- indices <asussman@vidya.com>
+- Fix counter-related problem which caused user-defined functions which
+  returned within an if() back into another if() to print an
+  "Expecting Elseif" parse error.  (Added test case to check for this)
+
+July 18 Version 1.1b3
+- Fix typo in file upload code
+- Add msqlListFields() function
+- Fix brace bug <zeller@stud.fh-heilbronn.de>
+- Add pg_ErrorMessage() function <asussman@vidya.com>
+- Added code to close all open files at the end of a script
+- Changed return type of Chr() function from integer to string
+- Fix broken Log10() function
+- Add Link(), Symlink() and RmDir() functions <fegli@goldnet.ch>
+- Fix EndWhile semi-colon bug
+- Fix local include references
+- Update README file to reflect mailing list software change
+- Added Virtual() function <akosut@organic.com>
+- Added ImageSX() and ImageSY() functions <geek+@cmu.edu>
+- msqllog enhancement <juhas@bassie.info.tampere.fi>
+- Fix email/password request screens to not fall through to URL
+- Fix $PATH_DIR bug
+- Convert a '.' in a GET/POST/Cookie variable to an underscore
+- Fix file descriptor check in mod_GOOMBAServer.c
+- Fix UrlEncode bug
+- Fix inconsistency in return value of file* functions
+- Clean up (unsigned char *) warnings
+
+June 13 Version 1.1b2
+- Fix core dump problem related to the PATH_TRANSLATED variable
+- Make cookie code compatible with Apache 1.0.x servers
+
+June. 12 Version 1.1b1
+- Fix bug in multiply-called while loops in included files 
+  (Thanks to Jeff Allen <jeff@Bunyip.Com>)
+- Fix %c handling bug in FormatCheck() function
+- Fix obscure associative array bug when returning from a function
+- Fix over-zealous pool clearing which caused problems with nested function
+  calls in some cases
+- Fix bug related to having multiple dbm file handles open concurrently
+- Add 'l' option to date() function to print full name of a day
+- Added SetCookie function
+- Added automatic cookie handling similar to GET/POST data handling
+
+May. 31 Version 1.99s
 - Fix Header problem caused by the buffered output code change (patch r1)
 - Change direct rputs() call to PUTS macro in lex.c (patch r2)
 - Fix MsqlConnect to make it close an existing connection (patch r2)
@@ -207,7 +581,7 @@ Mar. 18 Version 1.99g
 - Made install/configure script much smarter thanks to work by Gary Shea
   <shea@xmission.com>  install will now ask for any extra include/lib 
   directories that should be searched for the various libraries needed
-  by GOOMBAServer/FI
+  by GOOMBAServer
 - Made configure look for lrand48() function which it will use instead
   of rand() if present - suggested by Kenneth Holmlund
 - Changed VarTree data structure to support doubly-linked lists in order
@@ -236,7 +610,7 @@ Mar. 6 Version 1.99e
 - Added option to store log data in an mSQL database as opposed to a
   dbm file
 - Added PATTERN_RESTRICT compile-time option - this enables you to compile
-  GOOMBAServer    to allow it to only open files whose names match the given pattern
+  GOOMBAServer to allow it to only open files whose names match the given pattern
 - Added blurb on non-indexed arrays to documentation
 - Cleanups in file.c - added filename to "Unable to open file" message
 - Fixed bug in post.c which caused GET method array variables to be rejected
@@ -293,7 +667,7 @@ Feb. 12 Version 1.99c
   a cgi redirection module with Apache
 - Memory handling changes to _RegReplace function in reg.c - fixed potential
   memory leak
-- Wrote long chapter in doc.html on how to add your own functions to GOOMBAServer/FI
+- Wrote long chapter in doc.html on how to add your own functions to GOOMBAServer
 - Added @ (no error printing) version of fopen call
 - Fixed silly coredump in fopen() function
 - Fixed file upload bug - normal form fields are not url encoded when they
@@ -337,7 +711,7 @@ Feb. 5 Version 1.99b
 - Added stuff to doc/doc.html
 - Added chmod(), chown() and chgrp() native GOOMBAServer functions
 
-Jan. 24 Version 1.99a (Not quite ready to call it 2.0 yet)
+Jan. 24 Version 1.99a (Not quite ready to call it 1.1 yet)
 - Fixed floating point multiplication bug
 - Fixed Guestbook bug
 - Fixed SecureVar() bug

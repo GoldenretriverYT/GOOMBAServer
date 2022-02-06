@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,11 +19,10 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: cond.c,v 1.12 2022/05/16 15:29:17 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
-#include <GOOMBAServer.h>
-#include <parse.h>
+#include "GOOMBAServer.h"
+#include "parse.h"
 
 int iflevel=0;
 int ifstate=1;
@@ -122,7 +121,12 @@ int BracePop(void) {
 }
 
 int BraceCheck(void) {
-	if(btop) return(btop->token);
+	if(btop) {
+		return(btop->token);
+	}
+#if DEBUG
+	Debug("BraceCheck: no btop\n");
+#endif
 	return(0);
 }
 
@@ -461,7 +465,7 @@ void Not(void) {
 }
 
 /* 
- * This returns the conditonal value to be pushed onto the
+ * This returns the conditional value to be pushed onto the
  * stack by conditional expressions
  */
 int CheckCond(Stack *s) {

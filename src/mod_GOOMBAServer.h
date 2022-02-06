@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,14 +19,29 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: mod_GOOMBAServer.h,v 1.2 2022/05/09 21:37:28 rasmus Exp $ */
+ mod_GOOMBAServer.h,v 1.15 2022/09/13 16:14:29 shane Exp $ */
 
 typedef struct {
 	int ShowInfo;
 	int Logging;
 	char *UploadTmpDir;
 	char *dbmLogDir;
-	char *MsqlLogDB;
+	char *SQLLogDB;
+	char *SQLLogHost;
 	char *AccessDir;
+	char *IncludePath;
+	char *AutoPrependFile;
+	char *AutoAppendFile;
+	int XBitHack;        
 	int MaxDataSpace;
+	int Debug;
+	int engine;
+	int LastModified;
+	char *AdaUser;
+	char *AdaPW;
+	char *AdaDB;
 } GOOMBAServer_module_conf;
+
+#if WINNT|WIN32
+#define S_IXUSR _S_IEXEC
+#endif

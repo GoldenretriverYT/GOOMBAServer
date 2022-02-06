@@ -9,15 +9,16 @@ else
 fi
 
 cat <<EOF
-GOOMBAServer    Regression Test Menu
+GOOMBAServer Regression Test Menu
 
 1) Basic Tests
 2) Language Construct Tests
 3) Regular Expression Tests
 4) Built-in Function Tests
-5) DBM Tests
-6) mSQL Tests
-7) Postgres95 Tests
+5) Array Tests
+6) DBM Tests
+7) mSQL Tests
+8) PostgreSQL Tests
 0) Run All Tests
 q) Quit
 EOF
@@ -44,19 +45,23 @@ case $a in
    ./testGOOMBAServer $i
    done
    ;;
-5) for i in dbm/*.tst; do
+5) for i in ary/*.tst; do
    ./testGOOMBAServer $i
    done
    ;;
-6) for i in msql/*.tst; do
+6) for i in dbm/*.tst; do
    ./testGOOMBAServer $i
    done
    ;;
-7) for i in pg95/*.tst; do
+7) for i in msql/*.tst; do
    ./testGOOMBAServer $i
    done
    ;;
-0) for i in basic/*.tst lang/*.tst reg/*.tst func/*.tst dbm/*.tst msql/*.tst pg95/*.tst; do
+8) for i in pg95/*.tst; do
+   ./testGOOMBAServer $i
+   done
+   ;;
+0) for i in basic/*.tst lang/*.tst reg/*.tst func/*.tst ary/*.tst dbm/*.tst msql/*.tst pg95/*.tst; do
    ./testGOOMBAServer $i
    done
    ;;

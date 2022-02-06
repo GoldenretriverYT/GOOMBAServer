@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,36 +19,86 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: file.c,v 1.16 2022/05/21 23:41:05 rasmus Exp $ */
-#include <GOOMBAServer.h>
+ file.c,v 1.77 2022/09/18 20:31:13 shane Exp $ */
+#include "GOOMBAServer.h"
 #include <stdlib.h>
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <string.h>
+#ifdef HAVE_PWD_H
 #include <pwd.h>
+#endif
+#ifdef HAVE_GRP_H
 #include <grp.h>
+#endif
 #include <errno.h>
-#include <regexpr.h>
-#include <parse.h>
+#include "parse.h"
 #include <ctype.h>
+#if APACHE
+#include "http_protocol.h"
+#include "http_request.h"
+#endif
+#if WINNT|WIN32
+#include "win32/wfile.h"
+#endif
 
 static char *CurrentFilename=NULL;
 static char *CurrentStatFile=NULL;
+#if WINNT|WIN32
+static unsigned int CurrentStatLength=0;
+#else
+static int CurrentStatLength=0;
+#endif
 static char *CurrentPI=NULL;
 static long CurrentFileSize=0L;
 static struct stat gsb;
 static int fgetss_state=0;
+static char *IncludePath = NULL;
+static char *AutoPrependFile = NULL;
+static char *AutoAppendFile = NULL;
 
 static FpStack *fp_top = NULL;
 
+#if APACHE
+void GOOMBAServer_init_file(GOOMBAServer_module_conf *conf) {
+#else
 void GOOMBAServer_init_file(void) {
+#endif
 	CurrentFilename=NULL;
 	CurrentStatFile=NULL;
+	CurrentStatLength=0;
 	CurrentPI=NULL;
 	CurrentFileSize=0L;
 	fp_top = NULL;
 	fgetss_state=0;
+#if APACHE
+	IncludePath = conf->IncludePath;
+	AutoPrependFile = conf->AutoPrependFile;
+	AutoAppendFile = conf->AutoAppendFile;
+#endif
+	if (IncludePath == NULL) {
+		char *path;
+		path = getenv("GOOMBAServer_INCLUDE_PATH");
+		if(path) {
+			IncludePath = estrdup(0, path);
+		}
+	}
+	if (IncludePath == NULL) {
+	    IncludePath = estrdup(0, INCLUDEPATH);
+	}
+	if (AutoPrependFile == NULL) {
+	    char *file;
+	    if ((file = getenv("GOOMBAServer_AUTO_PREPEND_FILE"))) {
+			AutoPrependFile = estrdup(0, file);
+	    }
+	}
+	if (AutoAppendFile == NULL) {
+	    char *file;
+	    if ((file = getenv("GOOMBAServer_AUTO_APPEND_FILE"))) {
+		AutoAppendFile = estrdup(0, file);
+	    }
+	}
 }
 
 void StripLastSlash(char *str) {
@@ -60,25 +110,21 @@ void StripLastSlash(char *str) {
 	}
 }
 
+/* 
+ * Opens a file for parsing.  This function is overly complex and
+ * could use a rewrite/rethink.
+ */
 int OpenFile(char *filename, int top, long *file_size) {
 	char *fn, *pi, *sn, *fn2=NULL, *fn3=NULL;
 	char *s=NULL, *ss=NULL;
-	int ret=-1;
-	int no_httpd=0, include=0;
+	int ret=-1, careful=1;
 	int fd;
-#ifdef PATTERN_RESTRICT
-	int pret;
-	char *cp;
-	struct re_pattern_buffer exp;
-	struct re_registers regs;
-	char fastmap[256];
-#endif
+	int err, len;
+	char erbuf[100];
+	regex_t re;
+	regmatch_t subs[1];
 #ifdef GOOMBAServer_ROOT_DIR
 	char temp[1024];
-#endif
-
-#if DEBUG	
-	Debug("OpenFile called with %s\n",filename?filename:"null");
 #endif
 
 	if(!filename) {
@@ -92,7 +138,11 @@ int OpenFile(char *filename, int top, long *file_size) {
 #if APACHE
 		fn = GOOMBAServer_rqst->filename;
 #else
-		fn = getenv("PATH_TRANSLATED");
+#if WIN32
+		fn = getenv("PATH_TRANSLATED"); 
+#else
+		fn = pi;
+#endif
 #endif
 		if(!fn || (fn && !*fn)) { Info(); return(-1); }
 #else
@@ -103,8 +153,7 @@ int OpenFile(char *filename, int top, long *file_size) {
 	} else {
 		fn = filename;
 		pi = filename;
-		if(top) no_httpd=1;
-		else include=1;
+		careful=0;
 	}
 	/*
 	 * To prevent someone from uploading a file and then running it through GOOMBAServer
@@ -114,33 +163,56 @@ int OpenFile(char *filename, int top, long *file_size) {
 		return(-1);
 	}
 #ifdef PATTERN_RESTRICT
-	if(fn[strlen(fn)-1]!='/') {
-		exp.allocated = 0;
-		exp.buffer = 0;
-		exp.translate = NULL;
-		exp.fastmap = fastmap;
-		cp = GOOMBAServer_re_compile_pattern(PATTERN_RESTRICT,strlen(PATTERN_RESTRICT),&exp);
-		if(cp) {
-			Error("Regular Expression error in PATTERN_RESTRICT: %s",cp);
-			return(-1);
-		}
-		GOOMBAServer_re_compile_fastmap(&exp);
+	err = regcomp(&re, PATTERN_RESTRICT, 0);
+	if(err) {
+		len = regerror(err, &re, erbuf, sizeof(erbuf));
+		Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
+		return(-1);
+	}
 #if DEBUG
-		Debug("Checking pattern restriction: \"%s\" against \"%s\"\n",PATTERN_RESTRICT,fn);
+	Debug("Checking pattern restriction: \"%s\" against \"%s\"\n",PATTERN_RESTRICT,fn);
 #endif
-		if((pret = GOOMBAServer_re_match(&exp,fn,strlen(fn),0,&regs))<0) {
-			Error("Sorry, you are not permitted to load that file through GOOMBAServer/FI.",pret);
+	err = regexec(&re,fn,(size_t)1,subs,0);
+	if(err && err!= REG_NOMATCH) {
+		len = regerror(err, &re, erbuf, sizeof(erbuf));
+		Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
+		regfree(&re);
+		return(-1);
+	}
+	if(err==REG_NOMATCH) {
+		if(getenv("PATH_TRANSLATED")) {   /* ie. don't apply restriction when run from command line */
+			Error("Sorry, you are not permitted to load that file through GOOMBAServer.");
+			regfree(&re);
 			return(-1);
 		}
 	}
+	regfree(&re);
 #endif
-
-	fn = (char *)estrdup(1,FixFilename(fn,top,&ret));
+	/* Make sure the is no '..' in the path */
+	if(top) {
+		err = regcomp(&re, "\\.\\.", 0);
+		if(err) {
+			len = regerror(err, &re, erbuf, sizeof(erbuf));
+			Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
+			return(-1);
+		}
+		err = regexec(&re,fn,(size_t)1,subs,0);
+		if(err && err!= REG_NOMATCH) {
+			len = regerror(err, &re, erbuf, sizeof(erbuf));
+			Error("Regex error %s, %d/%d `%s'\n", reg_eprint(err), len, sizeof(erbuf), erbuf);
+			regfree(&re);
+			return(-1);
+		}
+		if(err!=REG_NOMATCH) {
+			Error("Sorry, you are not permitted to use '..' in your pathname.");
+			regfree(&re);
+			return(-1);
+		}
+		regfree(&re);
+	}
+	fn = (char *)estrdup(1,FixFilename(fn,top,&ret,careful));
 	*file_size = (long)gsb.st_size;
 	CurrentFileSize = (long)gsb.st_size;
-#if DEBUG
-	Debug("OpenFile: fn = [%s]\n",fn);
-#endif
 	fd=ret;
 	if(ret==-1) {
 #if DEBUG
@@ -156,12 +228,13 @@ int OpenFile(char *filename, int top, long *file_size) {
 #endif
 #endif
 		if(sn) {
-			fn = emalloc(1,sizeof(char) * (strlen(pi)+strlen(sn)+1));
+			fn = emalloc(1,sizeof(char) * (strlen(pi)+strlen(sn)+3));
 			strcpy(fn,sn);
 			s = strrchr(fn,'/');
 			if(s) *s='\0';
+			if(*pi!='/') strcat(fn,"/");
 			strcat(fn,pi);
-			fn2 = (char *) estrdup(1,FixFilename(fn,1,&ret));
+			fn2 = (char *) estrdup(1,FixFilename(fn,1,&ret,careful));
 			if(ret==-1) fn2 = NULL;
 		} else {
 			fd=-1;
@@ -196,28 +269,37 @@ int OpenFile(char *filename, int top, long *file_size) {
 			}
 		}
 		if(fn3 && *fn3) {
+#if DEBUG
+			Debug("Opening fn3 [%s]\n",fn3);
+#endif
 			fd = open(fn3,O_RDONLY);
 			if(fd==-1) {
-				Error("Unable to open <i>%s</i>",fn3);
+				Error("(1)Unable to open <i>%s</i>",fn3);
 				return(-1);
 			}
 		} else if(!fn2) {
+#if DEBUG
+			Debug("Opening fn [%s]\n",fn);
+#endif
 			fd = open(fn,O_RDONLY);
 			if(fd==-1) {
-				Error("Unable to open <i>%s</i>",fn);
+				Error("(2)Unable to open <i>%s</i>",fn);
 				return(-1);
 			}
 		} else {
+#if DEBUG
+			Debug("Opening fn2 [%s]\n",fn2);
+#endif
 			fd = open(fn2,O_RDONLY);
 			if(fd==-1) {
-				Error("Unable to open <i>%s</i>",fn2);
+				Error("(3)Unable to open <i>%s</i>",fn2);
 				return(-1);
 			}
 		}
 		if(top) SetStatInfo(&gsb);
 		
 #if ACCESS_CONTROL
-		if(!no_httpd && !include) {
+		if(top) {
 			if(CheckAccess(pi,gsb.st_uid)<0) return(-1);
 		}
 #endif
@@ -235,11 +317,9 @@ int OpenFile(char *filename, int top, long *file_size) {
 #else
 		ss = getenv("PATH_INFO");
 #endif
-		Error("Unable to open: <i>%s</i>",ss?ss:"null");
+		if(!ss) Error("(4)Unable to open: <i>%s</i>",filename?filename:"null");
+		else Error("(5)Unable to open: <i>%s</i>",ss);
 	}
-#if DEBUG
-	if(fd>0) Debug("CurrentFilename is [%s]\n",CurrentFilename);
-#endif
 	return(fd);
 }
 
@@ -248,10 +328,10 @@ int OpenFile(char *filename, int top, long *file_size) {
  * directory portion of the passed path and the PATH_DIR
  * environment variable will be set
  */
-char *FixFilename(char *filename, int cd, int *ret) {
+char *FixFilename(char *filename, int cd, int *ret, int careful) {
 	static char temp[1024];
 	char path[1024];
-	char fn[128], user[128], *s;
+	char fn[512], user[128], *s;
 	struct passwd *pw=NULL;
 	int st=0;
 	char o='\0';
@@ -259,21 +339,30 @@ char *FixFilename(char *filename, int cd, int *ret) {
 
 	s = strrchr(filename,'/');
 	if(s) {
-		strcpy(fn,s+1);
+		strncpy(fn,s+1,sizeof(fn));
+		fn[sizeof(fn) - 1]='\0';
 		o=*s;
 		*s='\0';
-		strcpy(path,filename);
+		if(strlen(filename)==0) {
+			strcpy(path,"/");
+		} else {
+			strncpy(path,filename,sizeof(path));
+			path[sizeof(path) - 1]='\0';
+		}
 		*s=o;
 	} else {
 #ifdef GOOMBAServer_ROOT_DIR
-		strcpy(path,GOOMBAServer_ROOT_DIR);	
+		strncpy(path,GOOMBAServer_ROOT_DIR,sizeof(path));	
+		path[sizeof(path)-1]='\0';
 #else
 		path[0] = '\0';
 #endif
-		strcpy(fn,filename);
+		strncpy(fn,filename,sizeof(fn));
+		fn[sizeof(fn)-1]='\0';
 	}
 	if(fn && *fn=='~') {
-		strcpy(path,fn);
+		strncpy(path,fn,sizeof(path));
+		path[sizeof(path)-1]='\0';
 		fn[0]='\0';
 	}
 	if(*path) {
@@ -283,50 +372,109 @@ char *FixFilename(char *filename, int cd, int *ret) {
 				o=*s;
 				*s='\0';
 			}
-			strcpy(user,path+1);
+			strcpy(user,path+1); /* This strcpy is safe, path size is known */
 			if(s) {
 				*s=o;		
 				strcpy(temp,s);
 			} else temp[0]='\0';
+#ifdef HAVE_PWD_H
 			if(*user) {
 				pw = getpwnam(user);	
-				if(pw) sprintf(path,"%s/%s%s",pw->pw_dir,GOOMBAServer_PUB_DIRNAME,temp);
+				if(pw) {
+				  const char* pd = 0;
+#ifdef GOOMBAServer_PUB_DIRNAME_ENV
+				  pd = getenv(GOOMBAServer_PUB_DIRNAME_ENV);
+#endif
+				  if (pd == 0) pd = GOOMBAServer_PUB_DIRNAME;
+				  strcpy (path,pw->pw_dir);
+				  strcat (path,"/");
+				  strncat (path, pd, sizeof(path) - strlen(path) - 1);
+				  strncat (path, temp, sizeof(path) - strlen(path) - 1);
+				}
 			}
+#endif
 		} else if(*path=='/' && *(path+1)=='~') {
 			s = strchr(path+1,'/');
 			if(s) {
 				o=*s;
 				*s='\0';
 			}
+			/* path contents is known to be safe here */
 			strcpy(user,path+2);
 			if(s) {
 				*s=o;		
+				/* s is derived from path and thus also safe */
 				strcpy(temp,s);
 			} else temp[0]='\0';
+#if HAVE_PWD_H
 			if(*user) {
 				pw = getpwnam(user);	
-				if(pw) sprintf(path,"%s/%s%s",pw->pw_dir,GOOMBAServer_PUB_DIRNAME,temp);
+				if(pw) {
+				  const char* pd = 0;
+#ifdef GOOMBAServer_PUB_DIRNAME_ENV
+				  pd = getenv(GOOMBAServer_PUB_DIRNAME_ENV);
+#endif
+				  if (pd == 0) pd = GOOMBAServer_PUB_DIRNAME;
+				  sprintf(path,"%s/%s%s",pw->pw_dir,pd,temp);
+				  strcpy(path,pw->pw_dir);
+				  strcat(path,"/");
+				  strncat(path, pd, sizeof(path) - strlen(path) - 1);
+				  strncat(path, temp, sizeof (path) - strlen(path) - 1);
+				}
 			}
+#endif
+		} else if(*path=='/') {
+#ifdef GOOMBAServer_DOCUMENT_ROOT
+			if(strncmp(path,GOOMBAServer_DOCUMENT_ROOT,strlen(GOOMBAServer_DOCUMENT_ROOT))) {
+				strcpy(temp,GOOMBAServer_DOCUMENT_ROOT);
+				if(strlen(path)>1) strcat(temp,path);
+				strncpy(path,temp,sizeof(path));
+				path[sizeof(path)-1]='\0';	
+			}
+#endif
 		}
 		temp[0]='\0';
 		if(cd) {
-			if(chdir(path)<0) {
+		strncpy(temp,path,sizeof(temp));
+retry:
+#if DEBUG
+			Debug("ChDir to %s\n",temp);
+#endif
+			if(chdir(temp)<0) {
 #if DEBUG
 				Debug("%d [%s]",errno,strerror(errno));
 #endif
+				s = strrchr(temp,'/');
+				if(s) {
+					*s='\0';
+					goto retry;
+				}
 			}
 		}
 		if(*fn) {
-			sprintf(temp,"%s/%s",path,fn);
+			strncpy(temp,path,sizeof(temp));
+			strcat(temp,"/");
+			strncat(temp,fn,sizeof(temp)-strlen(path)-1);
+			temp[sizeof(temp)-1]='\0';
 			st = stat(temp,&gsb);
 			if((st!=-1) && (gsb.st_mode&S_IFMT)==S_IFDIR) {
-				sprintf(temp,"%s/%s/index.html",path,fn);
+				strncpy(temp,path,sizeof(temp));
+				strcat(temp,"/");
+				strncat(temp,fn,sizeof(temp)-strlen(path)-1);
+				strcat(temp,"/index.html");
+				temp[sizeof(temp)-1]='\0';
 				st = stat(temp,&gsb);
 				if(st==-1) {
-					sprintf(temp,"%s/%s/index.phtml",path,fn);
+					strncpy(temp,path,sizeof(temp));
+					strcat(temp,"/");
+					strncat(temp,fn,sizeof(temp)-strlen(path)-1);
+					strcat(temp,"/index.phtml");
+					temp[sizeof(temp)-1]='\0';
 					st = stat(temp,&gsb);
 				}
-				sprintf(path,"%s/%s",path,fn);
+				strcat(path,"/");
+				strncat(path,fn,sizeof(path));
+				path[sizeof(path)-1]='\0';
 			} else if(st==-1) {
 				l = strlen(temp);
 				if(strlen(fn)>4) {
@@ -339,24 +487,31 @@ char *FixFilename(char *filename, int cd, int *ret) {
 		} else {
 			st = stat(path,&gsb);
 			if((st!=-1) && (gsb.st_mode&S_IFMT)==S_IFDIR) {
+				/* path is safe, this sprintf is fine */
 				sprintf(temp,"%s/index.html",path);
 				st = stat(temp,&gsb);
 				if(st==-1) {
+					/* this one is safe too */
 					sprintf(temp,"%s/index.phtml",path);
 					st = stat(temp,&gsb);
 				}
-			} else strcpy(temp,path);
+			} else strcpy(temp,path); /* ditto */
 		}
 	} else {
 		st = stat(fn,&gsb);
 		if((st!=-1) && (gsb.st_mode&S_IFMT)==S_IFDIR) {
-			sprintf(temp,"%s/index.html",fn);
+			strncpy(temp,fn,sizeof(temp)-12);
+			strcat(temp,"/index.html");
 			st = stat(temp,&gsb);
 			if(st==-1) {
-				sprintf(temp,"%s/index.phtml",fn);
+				strncpy(temp,fn,sizeof(temp)-13);
+				strcat(temp,"/index.phtml");
 				st = stat(temp,&gsb);
 			}
-		} else strcpy(temp,fn);
+		} else {
+			strncpy(temp,fn,sizeof(temp));
+			temp[sizeof(temp)-1]='\0';
+		}
 	}		
 	*ret=st;	
 	return(temp);
@@ -373,10 +528,8 @@ char *GetCurrentFilename(void) {
 
 
 void SetCurrentFilename(char *filename) {
-#if DEBUG
-	Debug("Setting CurrentFilename to [%s]\n",filename);
-#endif
-	CurrentFilename = estrdup(0,filename);
+	if(filename) CurrentFilename = estrdup(0,filename);
+	else CurrentFilename=NULL;
 }
 
 long GetCurrentFileSize(void) {
@@ -393,9 +546,9 @@ char *getfilename(char *path, int ext) {
 
 	s = strrchr(path,'/');
 	if(s) {
-		strcpy(filename,s);
+		strncpy(filename,s,sizeof(filename));
 	} else {
-		strcpy(filename,path);
+		strncpy(filename,path,sizeof(filename));
 	}
 
 	if(!ext) {
@@ -404,6 +557,10 @@ char *getfilename(char *path, int ext) {
 	}
 	return(filename);
 }	
+
+void ClearStatCache(void) {
+	if(CurrentStatFile) *CurrentStatFile=0;
+}
 
 void FileFunc(int type) {
 	Stack *s;
@@ -437,15 +594,32 @@ void FileFunc(int type) {
 		case 7:
 			Error("Stack error in filectime");
 			break;
+		case 8:
+			Error("Stack error in filetype");
+			break;
 		}
 		return;
 	}
 #if APACHE
-	if(!CurrentStatFile) CurrentStatFile = estrdup(0,GOOMBAServer_rqst->filename);
-#endif
-	if(!CurrentStatFile || (CurrentStatFile && strcmp(s->strval,CurrentStatFile))) {
-		CurrentStatFile = estrdup(0,s->strval);
+    if(!CurrentStatFile) {
+        CurrentStatFile = estrdup(0,GOOMBAServer_rqst->filename);
+        CurrentStatLength = strlen(GOOMBAServer_rqst->filename);
 		if(stat(CurrentStatFile,&sb)==-1) {
+			*CurrentStatFile=0;
+			Push("-1",LNUMBER);
+			return;
+		}
+    }
+#endif
+	if (!CurrentStatFile || strcmp(s->strval,CurrentStatFile)) {
+		if (strlen(s->strval) > CurrentStatLength) {
+			CurrentStatFile = estrdup(0,s->strval);
+			CurrentStatLength = strlen(s->strval);
+		} else {
+			strcpy(CurrentStatFile,s->strval);
+		}
+		if(stat(CurrentStatFile,&sb)==-1) {
+			*CurrentStatFile=0;
 			Push("-1",LNUMBER);
 			return;
 		}
@@ -483,6 +657,29 @@ void FileFunc(int type) {
 		sprintf(temp,"%ld",(long)sb.st_ctime);
 		Push(temp,LNUMBER);
 		break;
+	case 8: /* filetype */
+		switch(sb.st_mode&S_IFMT) {
+		case S_IFIFO:
+			Push("fifo",STRING);
+			break;
+		case S_IFCHR:
+			Push("char",STRING);
+			break;
+		case S_IFDIR:
+			Push("dir",STRING);
+			break;
+		case S_IFBLK:
+			Push("block",STRING);
+			break;
+		case S_IFREG:
+			lstat(CurrentStatFile,&sb);
+			if((sb.st_mode&S_IFMT) == S_IFLNK)
+				Push("link",STRING);
+			else
+				Push("file",STRING);
+			break;	
+		}
+		break;
 	}
 }
 
@@ -490,18 +687,18 @@ void TempNam(void) {
 	Stack *s;
 	char *d;
 	char *t;
-	char p[32];
+	char p[64];
 
 	s = Pop();
 	if(!s) {
-		Error("Stack error in tmpname");
+		Error("Stack error in tempnam");
 		return;
 	}
-	strncpy(p,s->strval,31);
+	strncpy(p,s->strval,sizeof(p));
 
 	s = Pop();
 	if(!s) {
-		Error("Stack error in tmpname");
+		Error("Stack error in tempnam");
 		return;
 	}
 	d = (char *) estrdup(1,s->strval);
@@ -520,9 +717,180 @@ void Unlink(void) {
 	}
 	if(!s->strval || (s->strval && !*(s->strval))) {
 		Error("Invalid filename in unlink");
+		Push("-1", LNUMBER);
 		return;
 	}
-	unlink(s->strval);
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be unlinked.");
+		Push("-1", LNUMBER);
+		return;	
+	}
+#endif
+	if (unlink(s->strval) == 0) {
+		Push("0", LNUMBER);
+	}
+	else {
+		Error("Unlink failed (%s)", strerror(errno));
+		Push("-1", LNUMBER);
+	}
+}
+
+void ReadLink(void) {
+	Stack *s;
+	int ret;
+	char buf[256];
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in ReadLink");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid path in ReadLink");
+		Push("-1", LNUMBER);
+		return;
+	}
+	ret = readlink(s->strval, buf , 256);
+	if(ret==-1) {
+		Error("ReadLink failed (%s)", strerror(errno));
+		Push("-1",LNUMBER);
+	}
+	else {
+		/*
+		 * Append NULL to the end of the string
+		 */
+		buf[ret] = '\0';
+		Push(buf,STRING);
+	}
+}
+
+void LinkInfo(void) {
+	Stack *s;
+	struct stat sb;	
+	int ret;
+	char temp[64];
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in LinkInfo");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid path in LinkInfo");
+		Push("-1", LNUMBER);
+		return;
+	}
+	ret = lstat(s->strval,&sb);
+	if(ret==-1) {
+		Error("LinkInfo failed (%s)", strerror(errno));
+		Push("-1",LNUMBER);
+	}
+	else
+	{
+		sprintf(temp,"%ld",(long)sb.st_dev);
+		Push(temp,LNUMBER);
+	}
+}
+ 
+void SymLink(void) {
+#ifdef HAVE_SYMLINK
+	Stack *s;
+	char *new;
+	int ret;
+	char temp[4];
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in symlink");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid filename in symlink");
+		Push("-1", LNUMBER);
+		return;
+	}
+	new = (char *) estrdup(1,s->strval);
+	s = Pop();
+	if(!s) {
+		Error("Stack error in symlink");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid filename in symlink");
+		Push("-1", LNUMBER);
+		return;
+	}
+
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,2)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be linked.");
+		Push("-1", LNUMBER);
+		return;	
+	}
+#endif
+
+	ret = symlink(s->strval, new);	
+	if(ret==-1) {
+		Error("SymLink failed (%s)", strerror(errno));
+	}
+	sprintf(temp,"%d",ret);
+	Push(temp,LNUMBER);
+#else
+	Pop();
+	Pop();
+	Error("SymLink not available on this system");
+	Push("0", LNUMBER);
+#endif
+}
+
+void Link(void) {
+#ifdef HAVE_LINK
+	Stack *s;
+	char *new;
+	int ret;
+	char temp[4];
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in link");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid filename in link");
+		Push("-1", LNUMBER);
+		return;
+	}
+	new = (char *) estrdup(1,s->strval);
+	s = Pop();
+	if(!s) {
+		Error("Stack error in link");
+		return;
+	}
+	if(!s->strval || (s->strval && !*(s->strval))) {
+		Error("Invalid filename in link");
+		Push("-1", LNUMBER);
+		return;
+	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,2)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be linked.");
+		Push("-1", LNUMBER);
+		return;	
+	}
+#endif
+	ret = link(s->strval, new);	
+	if(ret==-1) {
+		Error("Link failed (%s)", strerror(errno));
+	}
+	sprintf(temp,"%d",ret);
+	Push(temp,LNUMBER);
+#else
+	Pop();
+	Pop();
+	Error("Link not available on this system");
+	Push("0", LNUMBER);
+#endif
 }
 
 void Rename(void) {
@@ -537,7 +905,8 @@ void Rename(void) {
 		return;
 	}
 	if(!s->strval || (s->strval && !*(s->strval))) {
-		Error("Invalid filename in unlink");
+		Error("Invalid filename in rename");
+		Push("-1", LNUMBER);
 		return;
 	}
 	new = (char *) estrdup(1,s->strval);
@@ -547,12 +916,20 @@ void Rename(void) {
 		return;
 	}
 	if(!s->strval || (s->strval && !*(s->strval))) {
-		Error("Invalid filename in unlink");
+		Error("Invalid filename in rename");
+		Push("-1", LNUMBER);
 		return;
 	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,2)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be renamed.");
+		Push("-1", LNUMBER);
+		return;	
+	}
+#endif
 	ret = rename(s->strval, new);	
 	if(ret==-1) {
-		Error("%d [%s]",errno, strerror(errno));
+		Error("Rename failed (%s)", strerror(errno));
 	}
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
@@ -570,7 +947,7 @@ void Sleep(void) {
 }
 
 void USleep(void) {
-#if HAVE_USLEEP
+#ifdef HAVE_USLEEP
 	Stack *s;
 
 	s = Pop();
@@ -579,15 +956,31 @@ void USleep(void) {
 		return;
 	}
 	usleep(s->intval);
+#else
+	Pop();
+	Error("USleep not available on this system");
 #endif
 }
 
-int FpPush(FILE *fp, char *fn) {
+/*
+ * Push a file pointer onto internal file identifier stack
+ *
+ * Arguments:
+ *
+ * FILE *fp - file pointer
+ * char *fn - filename or host
+ * int type - type of file pointer (needed for FpCloseAll)
+ *            0 = regular file
+ *            1 = socket
+ *            2 = pipe
+ */
+int FpPush(FILE *fp, char *fn, int type) {
 	FpStack *new = emalloc(0,sizeof(FpStack));
 
 	new->fp = fp;
 	new->filename = (char *)estrdup(0,fn);
 	new->id = fileno(fp);
+	new->type = type;
 	new->next = fp_top;
 	fp_top = new;
 	return(new->id);
@@ -624,6 +1017,25 @@ void FpDel(int id) {
 	}
 }
 
+void FpCloseAll(void) {
+	FpStack *f;
+
+	f = fp_top;
+	while(f) {
+		switch(f->type) {
+		case 0:
+		case 1:
+			fclose(f->fp);
+			break;
+		case 2:
+			pclose(f->fp);
+			break;
+		}	
+		f = f->next;
+	}
+	fp_top = NULL;
+}
+
 void Fopen(void) {
 	Stack *s;
 	char temp[8];
@@ -654,6 +1066,15 @@ void Fopen(void) {
 	Debug("Opening [%s] with mode [%s]\n",s->strval,p);
 #endif
 	StripSlashes(s->strval);
+
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,2)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be opened.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
+
 	fp = fopen(s->strval,p);
 	if(!fp) {
 		Error("fopen(\"%s\",\"%s\") - %s",s->strval,p,strerror(errno));
@@ -661,7 +1082,7 @@ void Fopen(void) {
 		return;
 	}
 	fgetss_state=0;
-	id = FpPush(fp,s->strval);
+	id = FpPush(fp,s->strval,0);
 	sprintf(temp,"%d",id);	
 	Push(temp,LNUMBER);
 }	
@@ -681,10 +1102,12 @@ void Fclose(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
 	fclose(fp);
 	FpDel(id);
+	Push("0", LNUMBER);
 }
 
 void Popen(void) {
@@ -693,6 +1116,9 @@ void Popen(void) {
 	FILE *fp;
 	int id;
 	char *p;
+#if GOOMBAServer_SAFE_MODE
+	char *b, buf[1024];
+#endif
 
 	s = Pop();
 	if(!s) {
@@ -716,21 +1142,36 @@ void Popen(void) {
 #if DEBUG
 	Debug("Opening pipe to [%s] with mode [%s]\n",s->strval,p);
 #endif
-	StripSlashes(s->strval);
+#if GOOMBAServer_SAFE_MODE
+	b = strrchr(s->strval,'/');
+	if(b) {
+		sprintf(buf,"%s%s",GOOMBAServer_SAFE_MODE_EXEC_DIR,b);
+	} else {
+		sprintf(buf,"%s/%s",GOOMBAServer_SAFE_MODE_EXEC_DIR,s->strval);
+	}
+	fp = popen(buf,p);
+	if(!fp) {
+		Error("popen(\"%s\",\"%s\") - %s",buf,p,strerror(errno));
+		Push("-1",LNUMBER);
+		return;
+	}
+#else
 	fp = popen(s->strval,p);
 	if(!fp) {
 		Error("popen(\"%s\",\"%s\") - %s",s->strval,p,strerror(errno));
 		Push("-1",LNUMBER);
 		return;
 	}
-	id = FpPush(fp,s->strval);
+#endif
+	id = FpPush(fp,s->strval,2);
 	sprintf(temp,"%d",id);	
 	Push(temp,LNUMBER);
 }
 
 void Pclose(void) {
 	Stack *s;
-	int id;
+	int id,ret;
+	char temp[8];
 	FILE *fp;
 
 	s = Pop();
@@ -743,10 +1184,13 @@ void Pclose(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
-	pclose(fp);
+	ret=pclose(fp);
 	FpDel(id);
+	sprintf(temp,"%d",ret);	
+	Push(temp, LNUMBER);
 }
 
 void Feof(void) {
@@ -763,10 +1207,13 @@ void Feof(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
-	if(feof(fp)) Push("1",LNUMBER);
-	else Push("0",LNUMBER);
+	if(feof(fp))
+		Push("1",LNUMBER);
+	else
+		Push("0",LNUMBER);
 }
 
 void Fgets(void) {
@@ -793,6 +1240,7 @@ void Fgets(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("", STRING);
 		return;
 	}
 	buf = emalloc(1,sizeof(char) * (len + 1));
@@ -828,6 +1276,7 @@ void Fgetss(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("", STRING);
 		return;
 	}
 	buf = emalloc(1,sizeof(char) * (len + 1));
@@ -928,6 +1377,7 @@ void Fputs(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("", STRING);
 		return;
 	}
 	ParseEscapes(buf);
@@ -951,9 +1401,11 @@ void Rewind(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
 	rewind(fp);
+	Push("0", LNUMBER);
 }
 
 void Ftell(void) {
@@ -972,6 +1424,7 @@ void Ftell(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
 	pos = ftell(fp);
@@ -1001,6 +1454,7 @@ void Fseek(void) {
 	fp = FpFind(id);
 	if(!fp) {
 		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
 		return;
 	}
 	ret = fseek(fp,pos,SEEK_SET);
@@ -1013,8 +1467,67 @@ char *GetCurrentPI(void) {
 }
 
 void SetCurrentPI(char *pi) {
-	CurrentPI = estrdup(0,pi);
+	if(pi)
+		CurrentPI = estrdup(0,pi);
+	else 
+		CurrentPI = NULL;
 }
+
+char *GetIncludePath(void) {
+    return(IncludePath);
+}
+
+void SetIncludePath(char *path) {
+	if (path)
+		IncludePath = estrdup(0, path);
+	else
+		IncludePath = NULL;
+}
+
+char *GetAutoPrependFile(void) {
+    return(AutoPrependFile);
+}
+
+char *GetAutoAppendFile(void) {
+    return(AutoAppendFile);
+}
+
+#if APACHE
+void SetCurrentPD(char *pd) {
+	char *s;
+	int l=0;
+	char *env;
+
+#ifdef GOOMBAServer_ROOT_DIR
+	l = sizeof(char)*(strlen(pd) + strlen(GOOMBAServer_ROOT_DIR) + 2);
+	env = emalloc(0,l);
+#else
+	l = sizeof(char)*(strlen(pd)+2);
+	env = emalloc(0,l);
+#endif
+	s = strrchr(pd,'/');
+#ifdef GOOMBAServer_ROOT_DIR
+	if(!s) strncpy(env,GOOMBAServer_ROOT_DIR,l);
+#else
+	if(!s) strcpy(env,"/");
+#endif
+	else {
+		*s='\0';
+#ifdef GOOMBAServer_ROOT_DIR
+		strcpy(env,GOOMBAServer_ROOT_DIR);
+		strncat(env,pd,l);
+#else
+		strncpy(env,pd,l);
+#endif
+		*s='/';
+	}
+#if DEBUG
+	Debug("Setting PATH_DIR to %s\n",env);
+#endif
+	if(pd)
+		table_set(GOOMBAServer_rqst->subprocess_env,"PATH_DIR",env);
+}
+#endif
 
 void ChMod(void) {
 	Stack *s;
@@ -1033,12 +1546,23 @@ void ChMod(void) {
 		Error("Stack error in chmod()");
 		return;
 	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be changed.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
 	ret = chmod(s->strval,mode);
+	if (ret < 0) {
+		Error("ChMod failed (%s)", strerror(errno));
+	}
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
 }	
 
 void ChOwn(void) {
+#ifndef WIN32
 	Stack *s;
 	int ret;
 	char temp[8];
@@ -1052,6 +1576,7 @@ void ChOwn(void) {
 	pw = getpwnam(s->strval);
 	if(!pw) {
 		Error("Unable to find entry for %s in passwd file",s->strval);
+		Push("-1", LNUMBER);
 		return;
 	}
 	s = Pop();	
@@ -1059,12 +1584,26 @@ void ChOwn(void) {
 		Error("Stack error in chown()");
 		return;
 	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be changed.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
 	ret = chown(s->strval,pw->pw_uid,-1);
+	if (ret < 0) {
+		Error("ChOwn failed (%s)", strerror(errno));
+	}
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
+#else
+	Error("ChOwn not available under win32!");
+#endif
 }	
 
 void ChGrp(void) {
+#ifndef WIN32
 	Stack *s;
 	int ret;
 	char temp[8];
@@ -1078,6 +1617,7 @@ void ChGrp(void) {
 	if(s->intval != -1) gr = getgrnam(s->strval);
 	if(!gr) {
 		Error("Unable to find entry for %s in groups file",s->strval);
+		Push("-1", LNUMBER);
 		return;
 	}
 	s = Pop();	
@@ -1085,9 +1625,22 @@ void ChGrp(void) {
 		Error("Stack error in chown()");
 		return;
 	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be changed.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
 	ret = chown(s->strval,-1,gr->gr_gid);
+	if (ret < 0) {
+		Error("ChGrp failed (%s)", strerror(errno));
+	}
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
+#else
+	Error("ChGrp not available under win32!");
+#endif
 }
 
 void MkDir(void) {
@@ -1108,14 +1661,42 @@ void MkDir(void) {
 		return;
 	}
 	ret = mkdir(s->strval,mode);
+	if (ret < 0) {
+		Error("MkDir failed (%s)", strerror(errno));
+	}
 	sprintf(temp,"%d",ret);
 	Push(temp,LNUMBER);
 }	
 
-void File(void) {
+void RmDir(void) {
+	Stack *s;
+	int ret;
+	char temp[8];
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in rmdir()");
+		return;
+	}
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of directory to be removed.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
+	ret = rmdir(s->strval);
+	if (ret < 0) {
+		Error("RmDir failed (%s)", strerror(errno));
+	}
+	sprintf(temp,"%d",ret);
+	Push(temp,LNUMBER);
+}	
+
+void GOOMBAServerFile(void) {
 	Stack *s;
 	FILE *fp;
-	char buf[2048];
+	char buf[8192];
 	VarTree *var;
 	int l,t;
 
@@ -1128,6 +1709,15 @@ void File(void) {
 		Push("-1",LNUMBER);
 		return;
 	}
+
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be read.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
+		
 	fp = fopen(s->strval,"r");
 	if(!fp) {
 		Error("file(\"%s\") - %s",s->strval,strerror(errno));
@@ -1136,10 +1726,13 @@ void File(void) {
 	}
 	var = GetVar("__filetmp__",NULL,0);
 	if(var) deletearray(var);
-	while(fgets(buf,2047,fp)) {
+	while(fgets(buf,8191,fp)) {
+#if DEBUG
+		Debug("File() read line \"%s\"\n",buf);
+#endif
 		l = strlen(buf);
 		t = l;
-		while(isspace(buf[--l])); 
+		while(l>0 && isspace(buf[--l])); 
 		if(l<t) buf[l+1]='\0';	
 		Push(AddSlashes(buf,0),STRING);
 		SetVar("__filetmp__",1,0);
@@ -1150,22 +1743,269 @@ void File(void) {
 
 void set_path_dir(char *pi) {
 #ifndef APACHE
-	char *buf = emalloc(1,sizeof(char) * (strlen(pi)+12));
+	char *buf = malloc(sizeof(char) * (strlen(pi)+12));
 #endif
-	char *env = emalloc(1,sizeof(char) * (strlen(pi)+2));
+#ifdef GOOMBAServer_ROOT_DIR
+	char *env = emalloc(0,sizeof(char) * (strlen(pi) + strlen(GOOMBAServer_ROOT_DIR) + 2));
+#else
+	char *env = emalloc(0,sizeof(char) * (strlen(pi)+2));
+#endif
 	char *s;
 
 	s = strrchr(pi,'/');
+#ifdef GOOMBAServer_ROOT_DIR
+	if(!s) strcpy(env,GOOMBAServer_ROOT_DIR);
+#else
 	if(!s) strcpy(env,"/");
+#endif
 	else {
 		*s='\0';
+#ifdef GOOMBAServer_ROOT_DIR
+		sprintf(env,"%s%s",GOOMBAServer_ROOT_DIR,pi);
+#else
 		strcpy(env,pi);
+#endif
 		*s='/';
 	}
 #if APACHE
+#if DEBUG
+	Debug("1. Setting PATH_DIR to %s\n",env);
+#endif
 	table_set(GOOMBAServer_rqst->subprocess_env,"PATH_DIR",env);
 #else
 	sprintf(buf,"PATH_DIR=%s",env);
 	putenv(buf);
 #endif
 }
+
+/* This function is equivilent to <!--#include virtual...-->
+ * in mod_include. It does an Apache sub-request. It is useful
+ * for including CGI scripts or .shtml files, or anything else
+ * that you'd parse through Apache (for .phtml files, you'd probably
+ * want to use <?Include>. This only works when GOOMBAServer is compiled
+ * as an Apache module, since it uses the Apache API for doing
+ * sub requests.
+ */
+
+#if APACHE
+void Virtual(void) {
+	Stack *s;
+	char *file;
+	request_rec *rr = NULL;
+
+	s = Pop();
+	if (!s) {
+		Error("Stack error in Virtual");
+		return;
+	}
+
+	file = s->strval;
+
+	if (!(rr = sub_req_lookup_uri (file, GOOMBAServer_rqst))) {
+		Error("Unable to include file: %s", file);
+		if (rr)
+			destroy_sub_req (rr);
+		Push("-1", LNUMBER);
+		return;
+	}
+
+	if (rr->status != 200) {
+		Error("Unable to include file: %s", file);
+		if (rr)
+			destroy_sub_req (rr);
+		Push("-1", LNUMBER);
+		return;
+	}
+
+	/* Cannot include another GOOMBAServer file because of global conflicts */
+	if (rr->content_type &&
+		!strcmp(rr->content_type, "application/x-httpd-GOOMBAServer")) {
+		Error("Cannot include a GOOMBAServer file "
+			  "(use <code>&lt;?include \"%s\"&gt;</code> instead)", file);
+		if (rr)
+			destroy_sub_req (rr);
+		Push("-1", LNUMBER);
+		return;
+	}
+
+	if (run_sub_req(rr)) {
+		Error("Unable to include file: %s", file);
+		Push("-1", LNUMBER);
+	}
+	else {
+		Push("0", LNUMBER);
+	}
+
+	if (rr)
+		destroy_sub_req (rr);
+}
+#endif
+
+/*
+ * Read a file and write the ouput to stdout
+ */
+void ReadFile(void) {
+	Stack *s;
+	char buf[8192],temp[8];
+	FILE *fp;
+	int b,i, size;
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in ReadFile");
+		return;
+	}
+	if(!*(s->strval)) {
+		Push("-1",LNUMBER);
+		return;
+	}
+#if DEBUG
+	Debug("Opening [%s]\n",s->strval);
+#endif
+	StripSlashes(s->strval);
+
+#if GOOMBAServer_SAFE_MODE
+	if(!CheckUid(s->strval,1)) {
+		Error("SAFE MODE Restriction in effect.  Invalid owner of file to be read.");
+		Push("-1",LNUMBER);
+		return;
+	}
+#endif
+	fp = fopen(s->strval,"r");
+	if(!fp) {
+		Error("ReadFile(\"%s\") - %s",s->strval,strerror(errno));
+		Push("-1",LNUMBER);
+		return;
+	}
+	size= 0;
+	GOOMBAServer_header(0,NULL);
+	while((b = fread(buf, 1, sizeof(buf), fp)) > 0) {
+		for(i = 0; i < b; i++)
+			PUTC(buf [i]);
+		size += b ;
+	}
+	fclose(fp);
+	sprintf(temp,"%d",size);	
+	Push(temp,LNUMBER);
+}	
+
+/*
+ * Return or change the umask.
+ */
+void FileUmask(int args) {
+    char buf[16];
+    int oldumask;
+	Stack *s;
+
+    oldumask = umask(077);
+
+	if (args == 0) {
+		umask(oldumask);
+    }
+    else {
+		OctDec();
+		s = Pop();
+		if (!s) {
+			umask(oldumask); /* In case of errors the umask should
+							  * be changed back. */
+			Error("Stack error in Umask");
+			return;
+		}
+		umask(s->intval);
+    }
+
+    sprintf(buf, "%o", oldumask);
+	Push(buf, LNUMBER);
+}
+
+/*
+ * Read to EOF on a file descriptor and write the output to stdout.
+ */
+void FPassThru(void) {
+	Stack *s;
+	FILE *fp;
+	char buf[8192], temp[8];
+	int id, size, b, i;
+
+	s = Pop();
+	if (!s) {
+		Error("Stack error in FPassThru");
+		Push("-1", LNUMBER);
+		return;
+	}
+	id = s->intval;
+	fp = FpFind(id);
+	if (!fp) {
+		Error("Unable to find file identifier %d",id);
+		Push("-1", LNUMBER);
+		return;
+	}
+	
+	size = 0;
+	GOOMBAServer_header(0,NULL);
+	while((b = fread(buf, 1, sizeof(buf), fp)) > 0) {
+		for(i = 0; i < b; i++)
+			PUTC(buf [i]);
+		size += b ;
+	}
+	fclose(fp);
+	sprintf(temp,"%d",size);	
+	Push(temp,LNUMBER);
+}
+
+/*
+ * CheckUid
+ *
+ * This function has three modes:
+ * 
+ * 0 - return invalid (0) if file does not exist
+ * 1 - return valid (1)  if file does not exist
+ * 2 - if file does not exist, check directory
+ */
+int CheckUid(char *fn, int mode) {
+	struct stat sb;
+	int ret;
+	long uid=0L, duid=0L;
+	char *s;
+
+	if(!fn) return(0); /* path must be provided */
+
+	ret = stat(fn,&sb);
+	if(ret<0 && mode < 2) return(mode);
+	if(ret>-1) {
+		uid=sb.st_uid;
+		if(uid==getmyuid()) return(1);
+	}
+	s = strrchr(fn,'/');
+
+	/* This loop gets rid of trailing slashes which could otherwise be
+	 * used to confuse the function.
+	 */
+	while(s && *(s+1)=='\0' && s>fn) {
+		s='\0';
+		s = strrchr(fn,'/');
+	}
+
+	if(s) {
+		*s='\0';
+		ret = stat(fn,&sb);
+		*s='/';
+		if(ret<0) return(0);
+		duid = sb.st_uid;
+	} else {
+		s = getcwd(NULL,1024);
+		if(!s) return(0);
+		ret = stat(s,&sb);
+		free(s);
+		if(ret<0) return(0);
+		duid = sb.st_uid;
+	}
+	if(duid == getmyuid()) return(1);
+	else return(0);
+}
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * End:
+ */

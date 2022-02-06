@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,20 +19,20 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: msql.c,v 1.13 2022/05/23 12:11:28 rasmus Exp $ */
-/* mSQL is Copyright (c) 1993-2021 David J. Hughes */
+ msql.c,v 1.22 2022/04/15 14:30:50 cvswrite Exp $ */
+/* mSQL is Copyright (c) 1993-2022 David J. Hughes */
 
 /* Note that there is no mSQL code in this file */
 
-#include <GOOMBAServer.h>
+#include "GOOMBAServer.h"
 #include <stdlib.h>
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 #include <msql.h>
 #endif
-#include <parse.h>
+#include "parse.h"
 #include <ctype.h>
 
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 typedef struct ResultList {
 	m_result *result;
 	int ind;
@@ -47,21 +47,21 @@ static char *CurrentUnixPort=NULL;
 static int msql_ind=1;
 #endif
 
-void GOOMBAServer_init_msql(void) {
-#if HAVE_LIBMSQL
+void GOOMBAServer_init_msql(char *defaulthost) {
+#ifdef HAVE_LIBMSQL
 	static char junk[1];
 	CurrentTcpPort=&junk[0];
 	CurrentUnixPort=&junk[0];
 	dbsock=-1;
 	result_top=NULL;
 	junk[0]='\0';
-	CurrentHost=NULL;
+	CurrentHost=defaulthost;
 	CurrentDB[0]='\0';
 	msql_ind=1;
 #endif
 }
 
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 int add_result(m_result *result) {
 	ResultList *new;
 
@@ -93,7 +93,7 @@ m_result *get_result(int count) {
 #endif
 
 void del_result(int count) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	ResultList *new, *prev, *next;
 
 	prev=NULL;
@@ -113,7 +113,7 @@ void del_result(int count) {
 }
 
 void MsqlClose(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	ResultList *new,*next;
 
 	new = result_top;	
@@ -130,7 +130,7 @@ void MsqlClose(void) {
 }
 	
 void Msql(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	char *query=NULL;
 #ifndef APACHE
@@ -141,6 +141,7 @@ void Msql(void) {
 	char temp[16];
 	m_result *result=NULL;
 	char *tcpPort, *unixPort;
+	int count=0;
 
 #ifndef APACHE
 	if(First) {
@@ -226,7 +227,8 @@ void Msql(void) {
 #if APACHE
 	block_alarms();
 #endif
-	if(msqlQuery(dbsock,query)<0) {
+	/* For mSQL 1.1, the return value is useful.  For 1.0 it isn't. */
+	if((count=msqlQuery(dbsock,query))<0) {
 #if APACHE
 		unblock_alarms();
 #endif
@@ -238,6 +240,8 @@ void Msql(void) {
 	unblock_alarms();
 #endif
 	result = msqlStoreResult();	
+#ifndef LAST_REAL_TYPE
+	/* Here we try to add some intelligence to the return value for mSQL 1.0 */
 	if(result) j = add_result(result);
 	else {
 		if(!strncasecmp(query,"insert",6) || !strncasecmp(query,"update",6) || !strncasecmp(query,"create",6) || !strncasecmp(query,"drop",4) || !strncasecmp(query,"delete",6))
@@ -245,6 +249,11 @@ void Msql(void) {
 		else
 			j=-1;
 	}
+#else
+	/* For mSQL 1.1, the return value is already intelligent. No need for the hack */
+	if(result) j = add_result(result);
+	else j = count;
+#endif
 	sprintf(temp,"%d",j);
 	Push(temp,LNUMBER);
 #else
@@ -256,7 +265,7 @@ void Msql(void) {
 } 
 
 void MsqlConnect(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 
 	s = Pop();
@@ -278,7 +287,7 @@ void MsqlConnect(void) {
 }
 
 void MsqlResult(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	int i,j;
 	char fieldname[128];
@@ -329,11 +338,13 @@ void MsqlResult(void) {
 		result_ind = s->intval;
 	} else {
 		Error("Invalid result index in msql_result");
+		Push("", STRING);
 		return;
 	}	
 	result = get_result(result_ind);
 	if(!result) {
 		Error("Unable to find result index %d",result_ind);
+		Push("", STRING);
 		return;
 	}
 	i = msqlNumRows(result);
@@ -352,11 +363,17 @@ void MsqlResult(void) {
 			if(strlen(tablename)==0 || (strlen(tablename) > 0 && strcmp(msql_field->table,tablename)==0)) {
 				switch(msql_field->type) {
 				case INT_TYPE:
+#ifdef LAST_REAL_TYPE
+				case UINT_TYPE:
+#endif
 					if(record[i]) {
 						Push(record[i],LNUMBER);
 					} else Push("",STRING);
 					break;
 				case CHAR_TYPE:
+#ifdef LAST_REAL_TYPE
+				case TEXT_TYPE:
+#endif
 					if(record[i]) {
 						tmp = estrdup(1,record[i]);
 						Push((ret=AddSlashes(tmp,1)),STRING);
@@ -381,13 +398,14 @@ void MsqlResult(void) {
 #else
 	Pop();
 	Pop();
+	Pop();
 	Push("",STRING);
 	Error("No mSQL support");
 #endif
 }
 
 void MsqlFreeResult(void) {
-#if HAVE_LIBMSQL 
+#ifdef HAVE_LIBMSQL 
 	Stack *s;
 
 	s = Pop();
@@ -408,7 +426,7 @@ void MsqlFreeResult(void) {
 }
 
 void MsqlNumRows(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	char temp[16];
 	m_result *result;
@@ -422,22 +440,25 @@ void MsqlNumRows(void) {
 		result = get_result(s->intval);	
 		if(!result) {
 			Error("Unable to find result index %d",s->intval);
+			Push("-1", LNUMBER);
 			return;
 		}
 		sprintf(temp,"%d",msqlNumRows(result));
 	} else {
 		Error("Invalid result index in msql_numrows");
+		Push("-1", LNUMBER);
 		return;
 	}	
 	Push(temp,LNUMBER);
 #else
 	Pop();
 	Error("No mSQL support");
+	Push("-1", LNUMBER);
 #endif
 }
 
 void MsqlNumFields(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	char temp[16];
 	m_result *result;
@@ -451,17 +472,20 @@ void MsqlNumFields(void) {
 		result = get_result(s->intval);	
 		if(!result) {
 			Error("Unable to find result index %d",s->intval);
+			Push("-1", LNUMBER);
 			return;
 		}
 		sprintf(temp,"%d",msqlNumFields(result));
 	} else {
 		Error("Invalid result index in msql_numfields");
+		Push("-1", LNUMBER);
 		return;
 	}	
 	Push(temp,LNUMBER);
 #else
 	Pop();
 	Error("No mSQL support");
+	Push("-1", LNUMBER);
 #endif
 }
 
@@ -473,7 +497,7 @@ void MsqlNumFields(void) {
  * type = 4   pushes fieldflags
  */
 void MsqlField(int type) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	m_result *result=NULL;
 	int field_ind=0;
@@ -530,6 +554,23 @@ void MsqlField(int type) {
 		case NULL_TYPE:
 			Push("null",STRING);
 			break;
+#ifdef LAST_REAL_TYPE
+		case TEXT_TYPE:
+			Push("text",STRING);
+			break;
+		case UINT_TYPE:
+			Push("uint",STRING);
+			break;
+		case IDX_TYPE:
+			Push("index",STRING);
+			break;
+		case SYSVAR_TYPE:
+			Push("sysvar",STRING);
+			break;
+		case ANY_TYPE:
+			Push("any",STRING);
+			break;
+#endif
 		default:
 			Push("unknown",STRING);
 			break;
@@ -542,7 +583,7 @@ void MsqlField(int type) {
 	case 4:
 		flg = msql_field->flags;
 		temp[0]='\0';
-		if(flg & PRI_KEY_FLAG) strcat(temp,"primary key");
+/*		if(flg & PRI_KEY_FLAG) strcat(temp,"primary key"); */
 		if(flg & NOT_NULL_FLAG) {
 			if(strlen(temp))
 				strcat(temp," not null");
@@ -555,6 +596,7 @@ void MsqlField(int type) {
 #else
 	Pop();
 	Error("No mSQL support");
+	Push("", STRING);
 #endif
 } 
 
@@ -591,7 +633,7 @@ void MsqlRegCase(void) {
 
 
 void MsqlTableName(void){
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	int res_index=0;
 	int tb_index=0;
@@ -621,6 +663,11 @@ void MsqlTableName(void){
 	res_index=s->intval;
 
 	res=get_result(res_index);
+	if(!res) {
+		Error("Unable to find result index %d",res_index);
+		Push("", STRING);
+		return;
+	}
 	msqlDataSeek(res, tb_index);
 	row=msqlFetchRow(res);
 	if (row) {
@@ -637,7 +684,7 @@ void MsqlTableName(void){
 }
 
 void MsqlListTables(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	char* dbname;
 	Stack *s;
 	m_result *res=NULL;
@@ -666,6 +713,7 @@ void MsqlListTables(void) {
 	}
 	if(!s->strval) {
 		Error("Invalid dbname expression in msqllisttables");
+		Push("-1", LNUMBER);
 		return;
 	}
 	else dbname=(char*)estrdup(1,s->strval);
@@ -727,8 +775,125 @@ void MsqlListTables(void) {
 #endif
 }
 
+void MsqlListIndex(void) {
+#if defined(HAVE_LIBMSQL) && defined(LAST_REAL_TYPE)
+	char *dbname, *tablename, *indexname;
+	Stack *s;
+	m_result *res=NULL;
+	int tb_res; 
+#ifndef APACHE
+	static int First=1;
+	char junk[1];
+#endif
+	char *tcpPort, *unixPort;
+	char temp[16];
+
+#ifndef APACHE
+	if(First) {
+		CurrentDB[0] = '\0';
+		junk[0]='\0';
+		CurrentTcpPort=&junk[0];
+		CurrentUnixPort=&junk[0];
+		First=0;
+	}
+#endif
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in msqllistindex expression");
+		return;
+	}
+	if(!s->strval) {
+		Error("Invalid ndex name expression in msqllistindex");
+		return;
+	}
+	else indexname=(char*)estrdup(1,s->strval);
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in msqllistindex expression");
+		return;
+	}
+	if(!s->strval) {
+		Error("Invalid table name expression in msqllistindex");
+		return;
+	}
+	else tablename=(char*)estrdup(1,s->strval);
+	
+	s = Pop();
+	if(!s) {
+		Error("Stack error in msqllistindex expression");
+		return;
+	}
+	if(!s->strval) {
+		Error("Invalid dbname expression in msqllistindex");
+		return;
+	}
+	else dbname=(char*)estrdup(1,s->strval);
+
+	if(dbsock==-1) {
+		dbsock = msqlConnect(CurrentHost);
+		if(dbsock<0) {
+			Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+			Push("-1", LNUMBER);
+			return;
+		}
+		CurrentTcpPort = getenv("MSQL_TCP_PORT");
+		CurrentUnixPort = getenv("MSQL_UNIX_PORT");
+	} else {
+#if DEBUG
+		Debug("Open socket found, checking to see if still valid\n");
+#endif
+		tcpPort = getenv("MSQL_TCP_PORT");
+		unixPort = getenv("MSQL_UNIX_PORT");
+		if((tcpPort && strcmp(tcpPort,CurrentTcpPort)) || (unixPort && strcmp(unixPort,CurrentUnixPort))) {
+#if DEBUG
+			Debug("Not valid, need to reopen\n");
+#endif
+			MsqlClose();
+#if DEBUG
+			Debug("About to connect\n");
+#endif
+			dbsock = msqlConnect(CurrentHost);
+#if DEBUG
+			Debug("After connect\n");
+#endif
+			if(dbsock<0) {
+				Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+				Push("-1", LNUMBER);
+				return;
+			}
+			CurrentTcpPort = tcpPort;
+			CurrentUnixPort = unixPort;
+		}
+	}
+
+	if(msqlSelectDB(dbsock,dbname)<0){
+		Error("Unable to select mSQL table (%s)", msqlErrMsg);
+		Push("-1", LNUMBER);
+		return;
+	}
+
+	res = msqlListIndex(dbsock,tablename,indexname);
+	if (res) tb_res=add_result(res);
+	else {
+		Error("Unable to find an index in %s", dbname); 
+		Push("-1", LNUMBER);
+		return;
+	}
+
+	sprintf(temp, "%d", tb_res);
+	Push(temp, LNUMBER);
+
+#else
+	Pop();
+	Push("0", LNUMBER);
+	Error("No support for MsqlListIndex function");
+#endif
+}
+
 int msqlGetDbSock() {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	return(dbsock);
 #else
 	return(0);
@@ -736,7 +901,7 @@ int msqlGetDbSock() {
 }
 
 void msqlSetCurrent(int sock, char *newdb) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	CurrentTcpPort = getenv("MSQL_TCP_PORT");
 	CurrentUnixPort = getenv("MSQL_UNIX_PORT");
 	dbsock = sock;
@@ -745,7 +910,7 @@ void msqlSetCurrent(int sock, char *newdb) {
 }
 
 void MsqlCreateDB(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	char* dbname;
 	Stack *s;
 #ifndef APACHE
@@ -822,7 +987,7 @@ void MsqlCreateDB(void) {
 }
 
 void MsqlDropDB(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	char *dbname;
 	Stack *s;
 #ifndef APACHE
@@ -898,7 +1063,7 @@ void MsqlDropDB(void) {
 }
 
 void MsqlListDBs(void) {
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	char *hostname;
 	m_result *res=NULL;
 	int db_res; 
@@ -923,6 +1088,7 @@ void MsqlListDBs(void) {
 		dbsock = msqlConnect(CurrentHost);
 		if(dbsock<0) {
 			Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+			Push("-1", LNUMBER);
 			return;
 		}
 		CurrentTcpPort = getenv("MSQL_TCP_PORT");
@@ -947,6 +1113,7 @@ void MsqlListDBs(void) {
 #endif
 			if(dbsock<0) {
 				Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+				Push("-1", LNUMBER);
 				return;
 			}
 			CurrentTcpPort = tcpPort;
@@ -958,6 +1125,7 @@ void MsqlListDBs(void) {
 	if (res) db_res=add_result(res);
 	else {
 		Error("Unable to find any data bases in host: %s", hostname); 
+		Push("-1", LNUMBER);
 		return;
 	}
 
@@ -971,7 +1139,7 @@ void MsqlListDBs(void) {
 }
 
 void MsqlDBName(void){
-#if HAVE_LIBMSQL
+#ifdef HAVE_LIBMSQL
 	Stack *s;
 	int res_index=0;
 	int db_index=0;
@@ -985,6 +1153,10 @@ void MsqlDBName(void){
 	}
 	if(!s->strval) {
 		Error("Invalid table index expression in msqlTablename");
+		return;
+	}
+	if(s->intval == -1) {
+		Error("Your table index is -1 : An error must have occurred");
 		return;
 	}
 	db_index=s->intval;
@@ -1001,6 +1173,11 @@ void MsqlDBName(void){
 	res_index=s->intval;
 
 	res=get_result(res_index);
+	if(!res) {
+		Error("Unable to find result index %d",res_index);
+		Push("", STRING);
+		return;
+	}
 	msqlDataSeek(res, db_index);
 	row=msqlFetchRow(res);
 	if (row) {
@@ -1015,3 +1192,126 @@ void MsqlDBName(void){
 	Error("No mSQL support");
 #endif
 }
+
+void MsqlListFields(void) {
+#ifdef HAVE_LIBMSQL
+	Stack *s;
+	char *tablename=NULL;
+#ifndef APACHE
+	static int First=1;
+	char junk[1];
+#endif
+	int j;
+	char temp[16];
+	m_result *result=NULL;
+	char *tcpPort, *unixPort;
+
+#ifndef APACHE
+	if(First) {
+		CurrentDB[0] = '\0';
+		junk[0]='\0';
+		CurrentTcpPort=&junk[0];
+		CurrentUnixPort=&junk[0];
+		First=0;
+	}
+#endif
+
+	s = Pop();
+	if(!s) {
+		Error("Stack error in msql expression");
+		Push("-1",LNUMBER);
+		return;
+	}
+	if(s->strval) tablename = (char *)estrdup(1,s->strval);
+	else {
+		Error("No tablename in msql_listfields expression");
+		Push("-1",LNUMBER);
+		return;
+	}
+	s = Pop();
+	if(!s) {
+		Error("Stack error in msql expression");
+		Push("-1",LNUMBER);
+		return;
+	}
+	if(!s->strval) {
+		Error("No database argument in msql_listfields expression");
+		Push("-1",LNUMBER);
+		return;
+	}
+	if(dbsock==-1) {
+		dbsock = msqlConnect(CurrentHost);
+		if(dbsock<0) {
+			Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+			Push("-1",LNUMBER);
+			return;
+		}
+		CurrentTcpPort = getenv("MSQL_TCP_PORT");
+		CurrentUnixPort = getenv("MSQL_UNIX_PORT");
+	} else {
+#if DEBUG
+		Debug("Open socket found, checking to see if still valid\n");
+#endif
+		tcpPort = getenv("MSQL_TCP_PORT");
+		unixPort = getenv("MSQL_UNIX_PORT");
+		if((tcpPort && strcmp(tcpPort,CurrentTcpPort)) || (unixPort && strcmp(unixPort,CurrentUnixPort))) {
+#if DEBUG
+			Debug("Not valid, need to reopen\n");
+#endif
+			MsqlClose();
+#if DEBUG
+			Debug("About to connect\n");
+#endif
+			dbsock = msqlConnect(CurrentHost);
+#if DEBUG
+			Debug("After connect\n");
+#endif
+			if(dbsock<0) {
+				Error("Unable to connect to mSQL socket (%s)",msqlErrMsg);
+				Push("-1",LNUMBER);
+				return;
+			}
+			CurrentTcpPort = tcpPort;
+			CurrentUnixPort = unixPort;
+		}
+	}
+	if(strcmp(CurrentDB,s->strval)) {
+		if(msqlSelectDB(dbsock,s->strval)<0) {
+			Error("Unable to select mSQL database (%s)",msqlErrMsg);
+			Push("-1",LNUMBER);
+			return;
+		}
+		strcpy(CurrentDB,s->strval);
+	}
+
+#if DEBUG
+	Debug("Listing fields for table: %s\n",tablename);
+#endif
+#if APACHE
+	block_alarms();
+#endif
+	result=msqlListFields(dbsock,tablename);
+	if(msqlNumFields(result)<1) {
+#if APACHE
+		unblock_alarms();
+#endif
+		Error("Unable to perform msqlListFields for table: %s",tablename);
+		Push("-1",LNUMBER);
+		return;
+	}
+#if APACHE
+	unblock_alarms();
+#endif
+	if(result) j = add_result(result);
+	else {
+	        j=-1;
+	}
+	sprintf(temp,"%d",j);
+	Push(temp,LNUMBER);
+#else
+	Pop();
+	Pop();
+	Push("0",LNUMBER);
+	Error("No mSQL support");
+#endif
+}  /* MsqlListFields */

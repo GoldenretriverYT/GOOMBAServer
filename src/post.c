@@ -2,7 +2,7 @@
 *                                                                            *
 * GOOMBAServer                                                               *
 *                                                                            *
-* Copyright 2021,2022 GoombaProgrammer & Computa.me                          *
+* Copyright 2022 GoombaProgrammer                                            *
 *                                                                            *
 *  This program is free software; you can redistribute it and/or modify      *
 *  it under the terms of the GNU General Public License as published by      *
@@ -19,21 +19,23 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: post.c,v 1.6 2022/05/16 15:29:28 rasmus Exp $ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <GOOMBAServer.h>
-#include <parse.h>
+#include "GOOMBAServer.h"
+#include "parse.h"
 #if APACHE
 #include "http_protocol.h"
+#include "http_core.h"
+#include "http_config.h"
+#include "http_main.h"
 #endif
 
 #define ishex(x) (((x) >= '0' && (x) <= '9') || ((x) >= 'a' && (x) <= 'f') || \
                   ((x) >= 'A' && (x) <= 'F'))
 
-int htoi(unsigned char *s) {
+int htoi(char *s) {
         int     value;
         char    c;
 
@@ -54,7 +56,7 @@ void parse_url(char *data) {
     while(*data) {
         if(*data=='+') *dest=' ';
         else if(*data== '%' && ishex(*(data+1)) && ishex(*(data+2))) {
-            *dest = (unsigned char) htoi(data + 1);
+            *dest = (char) htoi(data + 1);
             data+=2;
         } else *dest = *data;
         data++;
@@ -71,7 +73,12 @@ void parse_url(char *data) {
  */
 char *getpost(void) {
 	static char *buf=NULL;
-	int bytes, length, cnt=0;
+#if MODULE_MAGIC_NUMBER > 20221007
+	char argsbuffer[HUGE_STRING_LEN];
+#else
+	int bytes;
+#endif
+	int length, cnt;
 #if FILE_UPLOAD
 	int file_upload=0;
 	char *mb;
@@ -121,6 +128,7 @@ char *getpost(void) {
 	}
 	
 	length = atoi(buf);
+	cnt = length;
 	buf = (char *)emalloc(1,(length+1)*sizeof(char));
 	if(!buf) {
 		Error("Unable to allocate memory in getpost()");
@@ -129,6 +137,31 @@ char *getpost(void) {
 #if DEBUG
 	Debug("Allocated %d bytes for post buffer\n",length);
 #endif
+#if MODULE_MAGIC_NUMBER > 20221007
+	if(should_client_block(GOOMBAServer_rqst)) {
+		void (*handler)();
+		int dbsize, len_read,dbpos=0;
+
+		hard_timeout("copy script args", GOOMBAServer_rqst); /* start timeout timer */
+		handler = signal(SIGPIPE, SIG_IGN); /* Ignore sigpipes for now */
+		while((len_read = get_client_block (GOOMBAServer_rqst, argsbuffer, HUGE_STRING_LEN)) > 0) {
+#if DEBUG
+			Debug("len_read = %d\n",len_read);
+#endif
+			if((dbpos + len_read) > length) dbsize = length - dbpos;
+			else dbsize = len_read;
+			reset_timeout(GOOMBAServer_rqst);  /* Make sure we don't timeout */
+			memcpy(buf + dbpos, argsbuffer, dbsize);
+#if DEBUG
+			Debug("here buf = \"%s\"\n",buf);
+#endif
+			dbpos += dbsize;
+		}
+		signal(SIGPIPE, handler); /* restore normal sigpipe handling */
+		kill_timeout(GOOMBAServer_rqst); /* stop timeout timer */
+	}	
+#else
+	cnt = 0;
 	do {
 #if APACHE
 		bytes = read_client_block(GOOMBAServer_rqst, buf + cnt, length - cnt);
@@ -137,6 +170,7 @@ char *getpost(void) {
 #endif
 		cnt += bytes;
 	} while(bytes && cnt<length);
+#endif
 #if FILE_UPLOAD
 	if(file_upload) {
 		mime_split(buf,cnt,boundary);
@@ -145,6 +179,9 @@ char *getpost(void) {
 #endif
 
 	buf[cnt]='\0';
+#if DEBUG
+	Debug("buf is [%s]\n",buf);
+#endif
 	return(buf);
 }
 
@@ -174,20 +211,31 @@ int CheckResult(char *res) {
 	return(0); /* never reached */
 }
 
+void dot_to_underscore(char *str) {
+	char *s = str;
+	while(*s) {
+		if(*s=='.') *s='_';
+		s++;
+	}
+}
+
 /*
  * arg = 0  Post Data
  * arg = 1  Get Data
+ * arg = 2  Cookie Data
+ * arg = 3  String Data
  */
 void TreatData(int arg) {
-	char *res, *s, *t, *tt, *u=NULL;
+	char *res=NULL, *s, *t, *tt, *u=NULL;
 	char *ind, *tmp, *ret;
 	char o='\0';
 	int itype;
 	int inc = 0;
 	VarTree *v;
+	Stack *ss;
 
 	if(arg==0) res = getpost();
-	else {
+	else if(arg==1) { /* Get data */
 #if APACHE
 		s = GOOMBAServer_rqst->args;
 #else
@@ -198,12 +246,36 @@ void TreatData(int arg) {
 			res = (char *)estrdup(1,s);
 		}
 		inc = -1;
+	} else if(arg==2) { /* Cookie data */
+#if APACHE
+		s = table_get(GOOMBAServer_rqst->subprocess_env,"HTTP_COOKIE");
+#else
+		s = getenv("HTTP_COOKIE");
+#endif
+		res=s;
+		if(s && *s) {
+			res = (char *)estrdup(1,s);
+		}
+		inc = -1;
+	} else if(arg==3) { /* String data */
+		ss = Pop();
+		if(!ss) {
+			Error("Stack error in TreatData");
+			return;
+		}
+		res=ss->strval;
+		if(res && *res) {
+			res = (char *)estrdup(1,ss->strval);
+		}
+		inc = -1;
 	}
+
 	if(!(res && *res)) return;
 #if DEBUG
 	Debug("TreatData: [%s]\n",res);
 #endif
-	s = strtok(res,"&");
+	if(arg==2) s = strtok(res,";");
+	else s = strtok(res,"&");
 	while(s) {
 		t = strchr(s,'=');
 		if(t) {
@@ -213,7 +285,15 @@ void TreatData(int arg) {
 				s = tt+1;
 				tt=strchr(s,'+');
 			}	
+			if(arg==2) {
+				tt = strchr(s,' ');
+				while(tt) {
+					s = tt+1;
+					tt=strchr(s,' ');
+				}	
+			}
 			parse_url(s);
+			dot_to_underscore(s);
 			itype = CheckIdentType(s);
 			if(itype==2) {
 				ind=GetIdentIndex(s);
@@ -227,10 +307,9 @@ void TreatData(int arg) {
 			/* 
 			 * This check makes sure that a variable which has been
 			 * defined through the POST method is not redefined with a
-			 * GET method variable.  Allowing this would make it
-			 * impossible to write secure GOOMBAServer Scripts.
+			 * GET/Cookie method variable.  
 			 */
-			if(arg==1) {
+			if(arg==1 || arg==2) {
 				v = GetVar(s,NULL,0);
 				if(v && v->flag != -1) {
 					if(itype==2) Pop();
@@ -240,10 +319,79 @@ void TreatData(int arg) {
 			}
 			parse_url(t+1);
 			tmp = estrdup(1,t+1);
+#if DEBUG
+			Debug("TreatData: setting $%s=%s (%d,%d)\n",s,tmp,itype,inc);
+#endif
 			Push((ret=AddSlashes(tmp,1)),CheckType(t+1));
-			SetVar(s,itype,inc);
+			SetVar(s,itype,(arg==3)?0:inc);
+
+#if GOOMBAServer_TRACK_VARS
+			Push((ret=AddSlashes(s,1)),STRING);
+			if (arg==0) SetVar("GOOMBAServer_POSTVARS",1,0);
+			else if (arg==1) SetVar("GOOMBAServer_GETVARS",1,0);
+			else if (arg==2) SetVar("GOOMBAServer_COOKIEVARS",1,0);
+			else if (arg==3) SetVar("GOOMBAServer_STRINGVARS",1,0);
+			else Pop();
+#endif
+
 			if(tt) *tt=o;
 		}
-		s = strtok(NULL,"&");
+		if(arg==2) s = strtok(NULL,";");
+		else s = strtok(NULL,"&");
 	}
+}	
+
+void TreatHeaders(void) {
+#if APACHE	
+#if GOOMBAServer_AUTH_VARS
+#if MODULE_MAGIC_NUMBER > 20221007
+	const char *s=NULL;
+#else
+	char *s=NULL;
+#endif
+	char *t;
+	char *user, *type;
+
+	if(GOOMBAServer_rqst->headers_in) s = table_get(GOOMBAServer_rqst->headers_in,"Authorization");
+	if(!s) return;
+
+	/* Check to make sure that this URL isn't authenticated
+	   using a traditional auth module mechanism */
+	if(auth_type(GOOMBAServer_rqst)) {
+#if DEBUG
+		Debug("Authentication done by server module\n");
+#endif
+		return;
+	}
+
+	if(strcmp(getword (GOOMBAServer_rqst->pool, &s, ' '), "Basic")) {
+		/* Client tried to authenticate using wrong auth scheme */
+#if DEBUG
+		Debug("client used wrong authentication scheme", GOOMBAServer_rqst->uri, GOOMBAServer_rqst);
+#endif
+		return;
+	}
+
+	t = uudecode(GOOMBAServer_rqst->pool, s);
+#if MODULE_MAGIC_NUMBER > 20221007
+    user = getword_nulls_nc(GOOMBAServer_rqst->pool, &t, ':');
+#else
+    user = getword(GOOMBAServer_rqst->pool, &t, ':');
+#endif
+    type = "Basic";
+
+	if(user) {
+		Push(AddSlashes(user,1),STRING);
+		SetVar("GOOMBAServer_AUTH_USER",0,0);
+	}
+	if(t) {
+		Push(AddSlashes(t,1),STRING);
+		SetVar("GOOMBAServer_AUTH_PW",0,0);
+	}
+	if(type) {
+		Push(AddSlashes(type,1),STRING);
+		SetVar("GOOMBAServer_AUTH_TYPE",0,0);
+	}
+#endif
+#endif
 }	
