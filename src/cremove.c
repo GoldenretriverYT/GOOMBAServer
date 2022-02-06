@@ -2,7 +2,7 @@
 #include "GOOMBAServer.h"
 #include "parse.h"
 
-int fdelete() {
+int cremove() {
     Stack *s;
 	s = Pop();
 	if(!s) {
