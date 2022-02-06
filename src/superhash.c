@@ -24,11 +24,11 @@
 
 #include "superhash.h"
 
-void Md5(void) {
+void superhash(void) {
 	Stack *s;
-	char *md5str;
+	char *superhashstr;
 #ifndef APACHE
-	MD5_CTX context;
+	superhash_CTX context;
 	unsigned int len;
 	unsigned char digest[16];
 	int i;
@@ -42,26 +42,26 @@ void Md5(void) {
 	}
 #if APACHE
 #if MODULE_MAGIC_NUMBER > 19970901
-	md5str = ap_md5( GOOMBAServer_rqst->pool, s->strval );
+	superhashstr = ap_superhash( GOOMBAServer_rqst->pool, s->strval );
 #else
-	md5str = md5( GOOMBAServer_rqst->pool, s->strval );
+	superhashstr = superhash( GOOMBAServer_rqst->pool, s->strval );
 #endif
 #else
 	len = strlen(s->strval);
-	md5str = emalloc(2,33);
-	md5str[0] = '\0';
-	MD5Init (&context);
-	MD5Update (&context, s->strval, len);
-	MD5Final (digest, &context);
-	for(i=0, r=md5str;i<16;i++, r+=2){
+	superhashstr = emalloc(2,33);
+	superhashstr[0] = '\0';
+	superhashInit (&context);
+	superhashUpdate (&context, s->strval, len);
+	superhashFinal (digest, &context);
+	for(i=0, r=superhashstr;i<16;i++, r+=2){
 	  sprintf(r, "%02x", digest[i]);
 	}
 	*r='\0';
 #endif
 #if DEBUG
-	Debug("Md5 returned [%s]\n",md5str);
+	Debug("superhash returned [%s]\n",superhashstr);
 #endif
-	Push(md5str,STRING);
+	Push(superhashstr,STRING);
 }	
 
 #define S11 7
@@ -81,13 +81,13 @@ void Md5(void) {
 #define S43 15
 #define S44 21
 
-static void MD5Transform PROTO_LIST ((UINT4 [4], unsigned char [64]));
+static void superhashTransform PROTO_LIST ((UINT4 [4], unsigned char [64]));
 static void Encode PROTO_LIST
   ((unsigned char *, UINT4 *, unsigned int));
 static void Decode PROTO_LIST
   ((UINT4 *, unsigned char *, unsigned int));
-static void MD5_memcpy PROTO_LIST ((POINTER, POINTER, unsigned int));
-static void MD5_memset PROTO_LIST ((POINTER, int, unsigned int));
+static void superhash_memcpy PROTO_LIST ((POINTER, POINTER, unsigned int));
+static void superhash_memset PROTO_LIST ((POINTER, int, unsigned int));
 
 static unsigned char PADDING[64] = {
   0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -95,7 +95,7 @@ static unsigned char PADDING[64] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-/* F, G, H and I are basic MD5 functions.
+/* F, G, H and I are basic superhash functions.
  */
 #define F(x, y, z) (((x) & (y)) | ((~x) & (z)))
 #define G(x, y, z) (((x) & (z)) | ((y) & (~z)))
@@ -130,9 +130,9 @@ Rotation is separate from addition to prevent recomputation.
  (a) += (b); \
   }
 
-/* MD5 initialization. Begins an MD5 operation, writing a new context.
+/* superhash initialization. Begins an superhash operation, writing a new context.
  */
-void MD5Init(MD5_CTX *context)
+void superhashInit(superhash_CTX *context)
 {
   context->count[0] = context->count[1] = 0;
   /* Load magic initialization constants.
@@ -143,11 +143,11 @@ void MD5Init(MD5_CTX *context)
   context->state[3] = 0x10325476;
 }
 
-/* MD5 block update operation. Continues an MD5 message-digest
+/* superhash block update operation. Continues an superhash message-digest
   operation, processing another message block, and updating the
   context.
  */
-void MD5Update(MD5_CTX *context, const unsigned char *input,
+void superhashUpdate(superhash_CTX *context, const unsigned char *input,
                       unsigned int inputLen)
 {
   unsigned int i, index, partLen;
@@ -166,12 +166,12 @@ void MD5Update(MD5_CTX *context, const unsigned char *input,
   /* Transform as many times as possible.
 */
   if (inputLen >= partLen) {
- MD5_memcpy
+ superhash_memcpy
    ((POINTER)&context->buffer[index], (POINTER)input, partLen);
- MD5Transform (context->state, context->buffer);
+ superhashTransform (context->state, context->buffer);
 
  for (i = partLen; i + 63 < inputLen; i += 64)
-   MD5Transform (context->state, &input[i]);
+   superhashTransform (context->state, &input[i]);
 
  index = 0;
   }
@@ -179,15 +179,15 @@ void MD5Update(MD5_CTX *context, const unsigned char *input,
  i = 0;
 
   /* Buffer remaining input */
-  MD5_memcpy
+  superhash_memcpy
  ((POINTER)&context->buffer[index], (POINTER)&input[i],
   inputLen-i);
 }
 
-/* MD5 finalization. Ends an MD5 message-digest operation, writing the
+/* superhash finalization. Ends an superhash message-digest operation, writing the
   the message digest and zeroizing the context.
  */
-void MD5Final(unsigned char digest[16], MD5_CTX *context)
+void superhashFinal(unsigned char digest[16], superhash_CTX *context)
 {
   unsigned char bits[8];
   unsigned int index, padLen;
@@ -199,22 +199,22 @@ void MD5Final(unsigned char digest[16], MD5_CTX *context)
 */
   index = (unsigned int)((context->count[0] >> 3) & 0x3f);
   padLen = (index < 56) ? (56 - index) : (120 - index);
-  MD5Update (context, PADDING, padLen);
+  superhashUpdate (context, PADDING, padLen);
 
   /* Append length (before padding) */
-  MD5Update (context, bits, 8);
+  superhashUpdate (context, bits, 8);
 
   /* Store state in digest */
   Encode (digest, context->state, 16);
 
   /* Zeroize sensitive information.
 */
-  MD5_memset ((POINTER)context, 0, sizeof (*context));
+  superhash_memset ((POINTER)context, 0, sizeof (*context));
 }
 
-/* MD5 basic transformation. Transforms state based on block.
+/* superhash basic transformation. Transforms state based on block.
  */
-static void MD5Transform (state, block)
+static void superhashTransform (state, block)
 UINT4 state[4];
 unsigned char block[64];
 {
@@ -300,7 +300,7 @@ unsigned char block[64];
   state[3] += d;
 
   /* Zeroize sensitive information.*/
-  MD5_memset ((POINTER)x, 0, sizeof (x));
+  superhash_memset ((POINTER)x, 0, sizeof (x));
 }
 
 /* Encodes input (UINT4) into output (unsigned char). Assumes len is
@@ -339,7 +339,7 @@ unsigned int len;
 /* Note: Replace "for loop" with standard memcpy if possible.
  */
 
-static void MD5_memcpy (output, input, len)
+static void superhash_memcpy (output, input, len)
 POINTER output;
 POINTER input;
 unsigned int len;
@@ -352,7 +352,7 @@ unsigned int len;
 
 /* Note: Replace "for loop" with standard memset if possible.
  */
-static void MD5_memset (output, value, len)
+static void superhash_memset (output, value, len)
 POINTER output;
 int value;
 unsigned int len;
