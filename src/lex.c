@@ -975,7 +975,7 @@ int yylex(YYSTYPE *lvalp) {
 			inmarker=inpos-1;
 			/* fall-through */
 
-		case 1:	/* '?' or '!?' gets us to state 2 */
+		case 1:	/* '!' or '!!' gets us to state 2 */
 			lstate=1;
 			c = getnextchar();
 			if(!c) { state=99; break; }
@@ -986,13 +986,13 @@ int yylex(YYSTYPE *lvalp) {
 					state=99; 
 					break; 
 				}
-				if(d != '?') {
+				if(d != '!') {
 					putback(d);
 				} else {
 					c = d; /* discard '!' */
 				}
 			}
-			if(c!='?') {
+			if(c!='!') {
 				putback(c);	
 				if(output_from_marker() < 0) {
 					state=99; break;
