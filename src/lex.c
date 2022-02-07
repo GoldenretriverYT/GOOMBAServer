@@ -204,7 +204,6 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "pg_exec", INTFUNC2,PGexec },
 	  { "pg_host", INTFUNC1,PGhost },
 	  { "pg_port", INTFUNC1,PGport },
-	  { "GOOMBAServerinfo", INTFUNC0,Info },
 	  { NULL,0,NULL } },
 
 	{ { "endwhile",ENDWHILE,NULL }, /* 8 */
@@ -327,6 +326,7 @@ static cmd_table_t cmd_table[22][35] = {
 
 	{ { "htmlspecialchars", INTFUNC1,HtmlSpecialChars }, /* 16 */
 	  { "imagecopyresized", IMAGECOPYRESIZED,NULL },
+	  { "goombaserverinfo", INTFUNC0,Info },
 	  { NULL,0,NULL } }, /* 16 */
 
 	{ { "imagefilltoborder", INTFUNC5,ImageFillToBorder }, /* 17 */
