@@ -23,7 +23,7 @@
 #include <GOOMBAServer.h>
 #include <parse.h>
 #include <stdio.h>
-int MySqlQuery() {
+void MySqlQuery(void) {
   Stack *s;
   s = Pop();
 	if(!s) {
@@ -36,6 +36,7 @@ int MySqlQuery() {
 	FILE* file = fopen("credentials.cgi", "r"); 
   if(!file){
     	Push("Credentials file not found!",STRING);
+	return;
   }
   char line[256]; 
   int i = 0; 
@@ -69,7 +70,7 @@ int MySqlQuery() {
 	
 	/* Connect to database */
 	if (!mysql_real_connect(conn, server, user, password, 
-                                      database, 0, NULL, 0)) {
+                                      database, 3306, NULL, 0)) {
 		Push(mysql_error(conn),STRING);
     return 1;
 	}
@@ -80,8 +81,17 @@ int MySqlQuery() {
    
 	res = mysql_use_result(conn);
    
-	while ((row = mysql_fetch_row(res)) != NULL)
-		Push(row[0],STRING);
+	int test = 0;
+	char coolkid[4096];
+	while ((row = mysql_fetch_row(res)) != NULL){
+		test++;
+		if(!row[test]){
+			continue;
+		} else {
+			strcat(coolkid, row[test]);
+		} 
+	}
+	Push(row[0],STRING);
    
 	/* close connection */
 	mysql_free_result(res);
