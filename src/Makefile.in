@@ -54,7 +54,7 @@ DISTFILES = ChangeLog README COPYING \
 	src/conf.c src/acc.c src/local.c src/dns.c src/log.c src/sort.c src/dir.c \
 	src/rand.c src/gd.c examples/log.html examples/log.readme src/parse.c \
 	src/mime.c src/fsock.c src/microtime.c src/mod_GOOMBAServer.c src/mod_GOOMBAServer.h src/pool.c \
-	src/tmagic.c \
+	src/tmagic.c src/ver.c \
 	scripts/msqllog src/hash.c src/md5.h src/goombcrypt.c src/cremove.c src/global.h \
 	examples/url.readme examples/url_add.html examples/url_cat.html \
 	examples/url_main.html examples/demo_main.html examples/demo_dir.html \
@@ -91,6 +91,7 @@ install: all
 OBJS= parse.o lex.o main.o error.o date.o stack.o calc.o var.o \
 	  echo.o cond.o switch.o db.o while.o string.o msql.o hash.o \
 	  regexpr.o reg.o exec.o file.o crypt.o head.o info.o post.o \
+	  ver.o \
 	  type.o conf.o acc.o local.o dns.o log.o sort.o dir.o rand.o \
 	  gd.o mime.o fsock.o microtime.o pg95.o pool.o goombcrypt.o tmagic.o \
 	  cremove.o
@@ -198,6 +199,7 @@ hash.o: hash.c md5.h global.h GOOMBAServer.h parse.h
 cremove.o: cremove.c GOOMBAServer.h parse.h
 local.o: local.c GOOMBAServer.h
 dns.o: dns.c GOOMBAServer.h parse.h
+ver.o: ver.c GOOMBAServer.h parse.h
 goombcrypt.o: goombcrypt.c GOOMBAServer.h parse.h
 log.o: log.c GOOMBAServer.h
 sort.o: sort.c GOOMBAServer.h parse.h
