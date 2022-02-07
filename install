@@ -282,6 +282,8 @@ rm src/Makefile.$$
 
 sed "s,HAVE_MMAP,GOOMBAServer_HAVE_MMAP," < config.h >config.$$
 mv config.$$ config.h
+echo "Installing MySQL libraries..."
+sudo apt-get install libmariadb-dev-compat libmariadb-dev default-libmysqlclient-dev
 
 if [ -f src/main.o ]
 then

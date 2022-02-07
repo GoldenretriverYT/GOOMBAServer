@@ -119,7 +119,8 @@ Using the software
   There are ways to automatically run your files through GOOMBAServer.  These
   methods are discussed in detail in the documentation.  
 
-
+  Also, thanks to the PHP devs (:
+  
 Troubleshooting
 ---------------
   You can find help on the:

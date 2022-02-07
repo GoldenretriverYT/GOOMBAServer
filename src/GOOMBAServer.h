@@ -394,6 +394,9 @@ void SelectGDB(void);
 void InsertGDB(void);
 void PutGDB(void);
 
+/* mysql.c */
+void MySqlQuery(void);
+
 /* hash.c [Please don't use this for passwords, learn from my mistakes (: ] */
 void Md5(void);
 

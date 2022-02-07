@@ -263,6 +263,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "getlastmod", INTFUNC0,GetLastMod },
 	  { "getmyinode", INTFUNC0,GetMyInode },
 	  { "getrandmax", INTFUNC0,GetRandMax },
+	  { "mysqlquery", INTFUNC1,MySqlQuery },
 	  { "setlogging", INTFUNC1,SetLogging },
 	  { "pg_numrows", INTFUNC1,PGnumRows },
 	  { "pg_options", INTFUNC1,PGoptions },
