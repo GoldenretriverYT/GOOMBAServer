@@ -119,8 +119,6 @@ Using the software
   There are ways to automatically run your files through GOOMBAServer.  These
   methods are discussed in detail in the documentation.  
 
-  Documentation, such that it is, can be found in the doc directory.
-
 
 Troubleshooting
 ---------------
