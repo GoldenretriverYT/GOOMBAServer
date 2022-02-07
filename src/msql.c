@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: msql.c,v 1.13 2022/05/23 12:11:28 rasmus Exp $ */
 /* mSQL is Copyright (c) 1993-2021 David J. Hughes */
 
 /* Note that there is no mSQL code in this file */

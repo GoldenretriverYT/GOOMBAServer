@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: tmagic.c,v 1.1 2022/05/20 15:20:28 rasmus Exp $ */
 #include <GOOMBAServer.h>
 #include <parse.h>
 #if APACHE

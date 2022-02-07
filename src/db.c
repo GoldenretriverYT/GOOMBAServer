@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: db.c,v 1.9 2022/05/16 15:29:18 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>

@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: reg.c,v 1.9 2022/05/27 13:01:53 rasmus Exp $ */
 #include <stdlib.h>
 #include <regexpr.h>
 #include <GOOMBAServer.h>

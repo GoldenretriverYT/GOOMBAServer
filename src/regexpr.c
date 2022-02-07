@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: regexpr.c,v 1.1.1.1 2022/03/13 15:16:03 rasmus Exp $ */
 /*
 
 regexpr.c
@@ -47,7 +46,6 @@ Free Software Foundation.
 Emacs-specific code and syntax table code is almost directly borrowed
 from GNU regexp.
 
-$Header: /u/local/src/repository/GOOMBAServerfi/src/regexpr.c,v 1.1.1.1 2022/03/13 15:16:03 rasmus Exp $
 
 */
 

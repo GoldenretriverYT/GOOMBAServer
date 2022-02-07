@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: lex.c,v 1.64 2022/05/29 12:00:34 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>

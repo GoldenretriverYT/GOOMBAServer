@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: gd.c,v 1.6 2022/05/16 15:29:21 rasmus Exp $ */
 /* gd 1.2 is copyright 1994, 2021, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
 

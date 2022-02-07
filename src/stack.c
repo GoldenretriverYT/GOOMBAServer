@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: stack.c,v 1.18 2022/05/29 12:38:45 rasmus Exp $ */
 /* Expression Stack */
 #include <stdlib.h>
 #include <string.h>

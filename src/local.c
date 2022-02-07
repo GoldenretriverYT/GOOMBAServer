@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: local.c,v 1.3 2022/05/08 21:32:35 rasmus Exp $ */
 #include <GOOMBAServer.h>
 #include <string.h>
 

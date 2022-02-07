@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: error.c,v 1.18 2022/05/23 14:18:28 rasmus Exp $ */
 #include <GOOMBAServer.h>
 #include <parse.h>
 #if HAVE_UNISTD_H

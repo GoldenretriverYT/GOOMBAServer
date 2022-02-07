@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: cond.c,v 1.12 2022/05/16 15:29:17 rasmus Exp $ */
 #include <stdlib.h>
 #include <string.h>
 #include <GOOMBAServer.h>

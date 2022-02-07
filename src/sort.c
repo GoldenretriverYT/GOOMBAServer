@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: sort.c,v 1.2 2022/05/08 21:32:40 rasmus Exp $ */
 #include <GOOMBAServer.h>
 #include <stdlib.h>
 #include <parse.h>

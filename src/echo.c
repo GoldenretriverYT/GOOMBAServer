@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: echo.c,v 1.21 2022/05/27 12:36:25 rasmus Exp $ */
 #include <stdlib.h>
 #include <GOOMBAServer.h>
 #include <parse.h>

@@ -23,7 +23,6 @@
  * Contributed by Paul Panotzki - Bunyip Information Systems
  *                                                         
  */
-/* $Id: fsock.c,v 1.3 2022/05/17 18:57:43 rasmus Exp $ */
 #include <GOOMBAServer.h>
 #include <stdlib.h>
 #if HAVE_UNISTD_H

@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: mod_GOOMBAServer.h,v 1.2 2022/05/09 21:37:28 rasmus Exp $ */
 
 typedef struct {
 	int ShowInfo;

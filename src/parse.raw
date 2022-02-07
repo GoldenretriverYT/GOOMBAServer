@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: parse.raw,v 1.35 2022/05/29 12:38:21 rasmus Exp $ */
 %{
 #include <stdio.h>
 #include <stdlib.h>

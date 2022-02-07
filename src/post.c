@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: post.c,v 1.6 2022/05/16 15:29:28 rasmus Exp $ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

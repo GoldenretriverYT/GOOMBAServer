@@ -19,7 +19,6 @@
 *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 *
 *                                                                            *
 \****************************************************************************/
-/* $Id: mime.c,v 1.8 2022/05/16 15:29:24 rasmus Exp $ */
 #include <stdlib.h>
 #include <GOOMBAServer.h>
 #include <parse.h>
