@@ -393,6 +393,9 @@ typedef struct pool {
 /* hash.c [Please don't use this for passwords, learn from my mistakes (: ] */
 void Md5(void);
 
+/* goombcrypt.c [Please don't use this for passwords] */
+void goombencrypt(void);
+
 /* cremove.c, Run the C version of UnLink. */
 void cremove(void);
 
