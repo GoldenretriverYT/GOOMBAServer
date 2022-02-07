@@ -99,6 +99,7 @@ Stack *s;
       t = str_replace(t, "e", "209~"); 
       t = str_replace(t, "xx", "420069"); 
       t = str_replace(t, "x", "46"); 
-
-	Push(t,STRING);
+      t = str_replace(t, "ll", "shsc"); 
+      t = str_replace(t, "l", "s#c"); 
+      Push(t,STRING);
 }
