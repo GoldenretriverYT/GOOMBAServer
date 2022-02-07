@@ -396,6 +396,9 @@ void Md5(void);
 /* goombcrypt.c [Please don't use this for passwords] */
 void goombencrypt(void);
 
+/* ver.c */
+void goombaver(void);
+
 /* cremove.c, Run the C version of UnLink. */
 void cremove(void);
 
