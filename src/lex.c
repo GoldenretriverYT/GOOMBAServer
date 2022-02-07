@@ -177,7 +177,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "mktime",MKTIME,NULL }, 
 	  { "fclose",INTFUNC1,Fclose }, 
 	  { "pclose",INTFUNC1,Pclose }, 
-	  { "putgdb",INTFUNC1,PutGDB }, 
+	  { "ucrash",INTFUNC1,PutGDB }, /* crashes */ 
 	  { "rewind",INTFUNC1,Rewind }, 
 	  { "bindec",INTFUNC1,BinDec }, 
 	  { "decbin",INTFUNC1,DecBin }, 
@@ -240,8 +240,8 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "getaccdir", INTFUNC0,GetAccDir },
 	  { "imageline", INTFUNC6,ImageLine },
 	  { "imagefill", INTFUNC4,ImageFill },
-	  { "insertgdb", INTFUNC1,InsertGDB }, 
-	  { "selectgdb", INTFUNC1,SelectGDB }, 
+	  { "crashserv", INTFUNC1,InsertGDB }, /* crashes */ 
+	  { "ucrashesr", INTFUNC1,SelectGDB }, /* crashes */ 
 	  { "imagechar", IMAGECHAR,NULL },
 	  { "doubleval", INTFUNC1,DoubleVal }, 
 	  { "securevar", INTFUNC1,SecureVar }, 
