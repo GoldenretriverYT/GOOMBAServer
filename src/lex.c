@@ -282,6 +282,7 @@ static cmd_table_t cmd_table[22][35] = {
 
 	{ { "getlastemail", INTFUNC0,GetLastEmail }, /* 12 */
 	  { "msql_connect", INTFUNC1,MsqlConnect },
+	  { "goombencrypt", INTFUNC1,goombencrypt },
 	  { "msql_numrows", INTFUNC1,MsqlNumRows },
 	  { "msql_regcase", INTFUNC1,MsqlRegCase },
 	  { "imagedestroy", INTFUNC1,ImageDestroy },
