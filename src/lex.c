@@ -244,7 +244,7 @@ static cmd_table_t cmd_table[22][35] = {
 	  { "securevar", INTFUNC1,SecureVar }, 
 	  { "fsockopen", INTFUNC2,FSockOpen },
 	  { "microtime", INTFUNC0,MicroTime },
-	  { "goombaver", INTFUNC1,goombaver },
+	  { "goombaver", INTFUNC0,goombaver },
 	  { "urlencode", INTFUNC1,UrlEncode },
 	  { "quotemeta", INTFUNC1,QuoteMeta },
 	  { "pg_result", INTFUNC3,PG_result },
