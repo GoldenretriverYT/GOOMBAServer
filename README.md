@@ -1,6 +1,3 @@
-GOOMBAServer                                                                      README
-|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 Legal Stuff
 -----------
 
@@ -130,6 +127,3 @@ Troubleshooting
   You can find help on the:
   - Online documentation, plus the latest version of the software can
     be found at http://www.computa.me/GOOMBAServer
-
-
-|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
