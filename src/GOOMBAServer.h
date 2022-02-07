@@ -390,6 +390,11 @@ typedef struct pool {
 #endif
 /* Prototypes */
 
+/* GoombDB.c */
+void SelectGDB(void);
+void InsertGDB(void);
+void PutGDB(void);
+
 /* hash.c [Please don't use this for passwords, learn from my mistakes (: ] */
 void Md5(void);
 
